@@ -2,9 +2,9 @@ name: OpenAlex Astronomy & Astrophysics collector
 on:
   workflow_dispatch:
     inputs:
-      max_days:
-        description: Maximum complete publication days
-        default: '30'
+      max_intervals:
+        description: Maximum date intervals
+        default: '2'
         required: true
       max_requests:
         description: Maximum HTTP attempts including retries
@@ -40,12 +40,12 @@ jobs:
       - name: Collect journal metadata
         env:
           OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
-          MAX_DAYS: ${{ inputs.max_days }}
+          MAX_INTERVALS: ${{ inputs.max_intervals }}
           MAX_REQUESTS: ${{ inputs.max_requests }}
           FROM_DATE: ${{ inputs.from_date }}
           TO_DATE: ${{ inputs.to_date }}
         run: |
-          args=(--journal aanda --max-days "$MAX_DAYS" --max-requests "$MAX_REQUESTS")
+          args=(--journal aanda --max-intervals "$MAX_INTERVALS" --max-requests "$MAX_REQUESTS")
           if [ -n "$FROM_DATE" ]; then args+=(--from-date "$FROM_DATE"); fi
           if [ -n "$TO_DATE" ]; then args+=(--to-date "$TO_DATE"); fi
           python scripts/collect_openalex_journal.py "${args[@]}"

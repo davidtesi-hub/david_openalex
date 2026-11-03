@@ -1,10 +1,10 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source": "openalex",
   "journal": "aanda",
   "corpus": "core",
-  "generated_at_utc": "2026-11-03T14:25:35+00:00",
-  "days": [
+  "generated_at_utc": "2026-11-03T14:30:43+00:00",
+  "legacy_days": [
     {
       "day": "2026-10-01",
       "query_filter": "primary_location.source.id:S205231332,type:article,from_publication_date:2026-10-01,to_publication_date:2026-10-01",
@@ -440,8 +440,39 @@
       "error": null
     }
   ],
+  "intervals": [
+    {
+      "from_date": "2026-10-04",
+      "to_date": "2026-11-02",
+      "query_filter": "primary_location.source.id:S205231332,type:article,from_publication_date:2026-10-04,to_publication_date:2026-11-02",
+      "status": "ok",
+      "initial_count": 336,
+      "final_count": 336,
+      "rows_received": 336,
+      "unique_count": 336,
+      "pages": 4,
+      "cursor": null,
+      "last_completed_utc": "2026-11-03T14:30:42+00:00",
+      "last_attempt_utc": "2026-11-03T14:30:33+00:00",
+      "error": null
+    }
+  ],
   "paper_count": 396,
   "recent_runs": [
+    {
+      "id": "9bcfb66e-f05f-4742-9286-c3fa7cae1760",
+      "started_utc": "2026-11-03T14:30:33+00:00",
+      "finished_utc": "2026-11-03T14:30:43+00:00",
+      "status": "ok",
+      "reason": null,
+      "attempts": 4,
+      "days_completed": 30,
+      "reported_cost_usd": 0.0004,
+      "max_days": null,
+      "max_requests": 10,
+      "intervals_completed": 1,
+      "max_intervals": 1
+    },
     {
       "id": "6b39b0ed-83d6-478b-a757-0a1cff74b362",
       "started_utc": "2026-11-03T14:24:50+00:00",
@@ -452,7 +483,9 @@
       "days_completed": 30,
       "reported_cost_usd": 0.0029999999999999988,
       "max_days": 30,
-      "max_requests": 100
+      "max_requests": 100,
+      "intervals_completed": null,
+      "max_intervals": null
     },
     {
       "id": "6f9e1b72-f6c3-4fcb-b085-4cda4330d57a",
@@ -464,7 +497,9 @@
       "days_completed": 1,
       "reported_cost_usd": 0.0002,
       "max_days": 1,
-      "max_requests": 5
+      "max_requests": 5,
+      "intervals_completed": null,
+      "max_intervals": null
     }
   ]
 }

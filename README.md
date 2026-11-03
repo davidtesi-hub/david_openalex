@@ -13,13 +13,13 @@ Python 3.12 y biblioteca estándar, sin dependencias externas. Configurar
 La clave nunca debe guardarse en Git. El PAT de GitHub es una credencial distinta.
 
 ```sh
-python scripts/collect_openalex_journal.py --journal aanda --max-days 30 --max-requests 100
+python scripts/collect_openalex_journal.py --journal aanda --max-intervals 2 --max-requests 100
 ```
 
 Prueba real acotada a una fecha de publicación:
 
 ```sh
-python scripts/collect_openalex_journal.py --journal aanda --from-date 2026-10-01 --to-date 2026-10-01 --max-days 1 --max-requests 5
+python scripts/collect_openalex_journal.py --journal aanda --from-date 2026-10-01 --to-date 2026-10-01 --max-intervals 1 --max-requests 5
 ```
 
 En GitHub Actions, lanzar manualmente **OpenAlex Astronomy & Astrophysics collector**.
@@ -32,19 +32,22 @@ No tiene cron activo inicialmente. El límite interno es 25 minutos y el job tie
 cobertura diaria, ejecuciones, estado y registro de llamadas sin secretos.
 `library/aanda.coverage.json` es un manifiesto generado desde esa base.
 
-Se consultan días completos hasta ayer UTC, paginando con cursor, 100 works por
-página, una solicitud simultánea y un segundo mínimo entre llamadas.
-Un día solo queda `ok` tras completar las páginas y comprobar IDs únicos y conteos.
-Un día sin resultados queda cubierto. Una interrupción conserva páginas recibidas;
-el siguiente intento vuelve al inicio de ese día y hace UPSERT por Work ID.
+Se consultan intervalos de hasta **30 dias de publicacion**, hasta ayer UTC,
+con cursor y hasta 100 works por pagina. Una solicitud simultanea y un segundo
+minimo entre llamadas. `--max-intervals` limita bloques, no peticiones.
+Por defecto se intentan dos bloques: el reciente para refresco y otro historico.
+`--interval-days` permite reducir el bloque (30 por defecto).
 
-Se revisitan hasta cinco días recientes por ejecución (reservando al menos una
-plaza para huecos). Los huecos históricos se rellenan de más reciente a más
-antiguo. Tras el backfill se reconcilia el histórico por antigüedad de consulta.
-La fecha inicial detectada queda guardada en `collector_state`: debe revisarse
-si se incorporan publicaciones anteriores al inicio conocido de la revista.
-Las altas/correcciones tardías se detectan al revisitar sus fechas; no se promete
-sincronización inmediata. No se usan filtros premium por fecha de actualización.
+Solo se marca un intervalo completo al agotar sus paginas y comprobar IDs unicos
+y conteos. Cada articulo conserva su fecha individual. Una interrupcion conserva
+las paginas; el intervalo se reinicia con UPSERT en la siguiente ejecucion.
+
+El esquema 2 conserva day_coverage como historial diario y agrega interval_coverage.
+El manifiesto contiene legacy_days e intervals. Los huecos historicos se agrupan
+en periodos contiguos de hasta 30 dias; luego se reconcilian intervalos antiguos.
+Las altas tardias se detectan al volver a consultar sus fechas. El limite historico
+guardado en collector_state debe revisarse si se incorporan obras anteriores.
+No se usan filtros premium de actualizacion.
 
 El JSON es el recibido en las respuestas de lista: OpenAlex puede limitar a 100
 las autorías y ubicaciones mostradas. No equivale a descargar el registro individual

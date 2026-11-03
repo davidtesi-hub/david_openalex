@@ -32,6 +32,30 @@ def page(records, total, cursor=None):
 
 
 class CollectorTests(unittest.TestCase):
+    def test_thirty_day_blocks_have_no_gaps(self):
+        first, last = c.date(2026, 9, 1), c.date(2026, 10, 31)
+        blocks = list(c.split_range(first, last, 30))
+        days = [start + c.timedelta(days=i) for start, end in blocks
+                for i in range((end - start).days + 1)]
+        self.assertEqual(len(days), 61)
+        self.assertEqual(len(set(days)), 61)
+        self.assertEqual(min(days), first)
+        self.assertEqual(max(days), last)
+
+    def test_dates_are_preserved_across_interval_pages(self):
+        second = work('2')
+        second['publication_date'] = '2026-10-30'
+        self.collect([page([work('1')], 2, 'next'), page([second], 2)])
+        dates = self.db.execute('SELECT publication_date FROM papers ORDER BY id').fetchall()
+        self.assertEqual(dates, [('2026-10-01',), ('2026-10-30',)])
+
+    def test_legacy_coverage_preserved_and_holes_planned(self):
+        self.db.execute("INSERT INTO day_coverage(day,query_filter,status) VALUES('2026-09-30','legacy','ok')")
+        blocks = c.plan_intervals(self.db, c.date(2026,9,1), c.date(2026,10,31), 30)
+        self.assertEqual(blocks[0], (c.date(2026,10,2), c.date(2026,10,31)))
+        self.assertEqual(blocks[1], (c.date(2026,10,1), c.date(2026,10,1)))
+        self.assertEqual(self.db.execute('SELECT status FROM day_coverage').fetchone()[0], 'ok')
+
     def setUp(self):
         self.db = sqlite3.connect(':memory:')
         c.init_db(self.db)
@@ -41,10 +65,10 @@ class CollectorTests(unittest.TestCase):
         self.db.close()
 
     def collect(self, pages):
-        c.collect_day(self.db, FakeClient(pages), self.journal, '2026-10-01')
+        c.collect_interval(self.db, FakeClient(pages), self.journal, '2026-10-01', '2026-10-30')
 
     def status(self):
-        return self.db.execute('SELECT status FROM day_coverage').fetchone()[0]
+        return self.db.execute('SELECT status FROM interval_coverage').fetchone()[0]
 
     def test_multiple_pages_and_idempotent_refresh(self):
         for _ in range(2):
