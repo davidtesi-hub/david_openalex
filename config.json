@@ -1,0 +1,15 @@
+{
+  "journals": {
+    "aanda": {
+      "name": "Astronomy & Astrophysics",
+      "source_id": "S205231332",
+      "issn": ["0004-6361", "1432-0746"]
+    }
+  },
+  "request_interval_seconds": 1.0,
+  "request_timeout_seconds": 60,
+  "max_retries": 3,
+  "per_page": 100,
+  "recent_refresh_days": 30,
+  "refresh_days_per_run": 5
+}

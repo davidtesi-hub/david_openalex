@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "source": "openalex",
+  "journal": "aanda",
+  "corpus": "core",
+  "generated_at_utc": "2026-11-03T13:46:47+00:00",
+  "days": [
+    {
+      "day": "2026-10-01",
+      "query_filter": "primary_location.source.id:S205231332,type:article,from_publication_date:2026-10-01,to_publication_date:2026-10-01",
+      "status": "ok",
+      "initial_count": 60,
+      "final_count": 60,
+      "rows_received": 60,
+      "unique_count": 60,
+      "pages": 1,
+      "cursor": null,
+      "last_completed_utc": "2026-11-03T13:46:47+00:00",
+      "last_attempt_utc": "2026-11-03T13:46:44+00:00",
+      "error": null
+    }
+  ],
+  "paper_count": 60,
+  "recent_runs": [
+    {
+      "id": "6f9e1b72-f6c3-4fcb-b085-4cda4330d57a",
+      "started_utc": "2026-11-03T13:46:43+00:00",
+      "finished_utc": "2026-11-03T13:46:47+00:00",
+      "status": "ok",
+      "reason": null,
+      "attempts": 2,
+      "days_completed": 1,
+      "reported_cost_usd": 0.0002,
+      "max_days": 1,
+      "max_requests": 5
+    }
+  ]
+}
