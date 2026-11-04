@@ -191,3 +191,30 @@ la inferencia. Cada modelo modifica solo sus propios resultados y prioridad.
 Artifacts de respaldo se intentan guardar incluso en caso de fallo. Las
 valoraciones ya guardadas no se recalculan automaticamente cuando cambia el abstract:
 el hash permite detectar posteriormente esa necesidad.
+
+## Capturas manuales Crossref y Crossmark de A&A
+
+Dos workflows sin cron: Crossref Astronomy & Astrophysics manual y Crossmark
+Astronomy & Astrophysics manual. Solo ISSN 0004-6361, type journal-article,
+30 dias de publicacion hasta ayer UTC (ambos extremos incluidos). El intervalo
+se calcula al ejecutar; el 2026-11-04 comprende 2026-10-05 a 2026-11-03.
+
+Crossref guarda registros completos en library/crossref/aanda.sqlite. Crossmark
+usa la misma API REST oficial de Crossref y conserva metadatos de actualizaciones,
+assertions, relaciones y procedencia en library/crossmark/aanda.sqlite. No hay
+una API Crossmark independiente en esta implementacion. Ausencia de metadatos
+Crossmark no demuestra ausencia de retractacion o correccion. El alcance temporal
+es la fecha de publicacion, no un seguimiento exhaustivo de actualizaciones de
+articulos antiguos.
+
+Los correos locales de crossref.env y crossmark.env se configuran como secrets
+CROSSREF_MAILTO y CROSSMARK_MAILTO para el polite pool; no se publican en el repo.
+Ambos workflows comparten crossref-api-requests (distinto de OpenAlex), una llamada
+simultanea, al menos un segundo entre llamadas, cursor, hasta 100 intentos y
+reintentos limitados con Retry-After. Guardan datos y artefactos incluso ante error.
+Los registros se actualizan por DOI; runs registra el intervalo y si termino completo.
+
+Fuentes oficiales:
+- https://www.crossref.org/documentation/retrieve-metadata/rest-api/
+- https://www.crossref.org/documentation/retrieve-metadata/rest-api/rest-api-filters/
+- https://www.crossref.org/crossmark/
