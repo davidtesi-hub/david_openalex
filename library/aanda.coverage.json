@@ -3,7 +3,7 @@
   "source": "openalex",
   "journal": "aanda",
   "corpus": "core",
-  "generated_at_utc": "2026-11-04T01:24:04+00:00",
+  "generated_at_utc": "2026-11-04T01:47:02+00:00",
   "legacy_days": [
     {
       "day": "2026-10-01",
@@ -442,6 +442,21 @@
   ],
   "intervals": [
     {
+      "from_date": "2026-09-01",
+      "to_date": "2026-09-30",
+      "query_filter": "primary_location.source.id:S205231332,type:article,from_publication_date:2026-09-01,to_publication_date:2026-09-30",
+      "status": "ok",
+      "initial_count": 377,
+      "final_count": 377,
+      "rows_received": 377,
+      "unique_count": 377,
+      "pages": 4,
+      "cursor": null,
+      "last_completed_utc": "2026-11-04T01:47:02+00:00",
+      "last_attempt_utc": "2026-11-04T01:46:54+00:00",
+      "error": null
+    },
+    {
       "from_date": "2026-10-02",
       "to_date": "2026-10-03",
       "query_filter": "primary_location.source.id:S205231332,type:article,from_publication_date:2026-10-02,to_publication_date:2026-10-03",
@@ -470,10 +485,39 @@
       "last_completed_utc": "2026-11-03T14:31:55+00:00",
       "last_attempt_utc": "2026-11-03T14:31:49+00:00",
       "error": null
+    },
+    {
+      "from_date": "2026-10-05",
+      "to_date": "2026-11-03",
+      "query_filter": "primary_location.source.id:S205231332,type:article,from_publication_date:2026-10-05,to_publication_date:2026-11-03",
+      "status": "ok",
+      "initial_count": 336,
+      "final_count": 336,
+      "rows_received": 336,
+      "unique_count": 336,
+      "pages": 4,
+      "cursor": null,
+      "last_completed_utc": "2026-11-04T01:46:54+00:00",
+      "last_attempt_utc": "2026-11-04T01:46:48+00:00",
+      "error": null
     }
   ],
-  "paper_count": 405,
+  "paper_count": 782,
   "recent_runs": [
+    {
+      "id": "5629e619-95db-4646-baa0-b8da454b6f6f",
+      "started_utc": "2026-11-04T01:46:48+00:00",
+      "finished_utc": "2026-11-04T01:47:02+00:00",
+      "status": "ok",
+      "reason": null,
+      "attempts": 8,
+      "days_completed": 60,
+      "reported_cost_usd": 0.0008000000000000001,
+      "max_days": null,
+      "max_requests": 100,
+      "intervals_completed": 2,
+      "max_intervals": 2
+    },
     {
       "id": "4eee241d-d5e1-4141-be5f-c04a2ff65a70",
       "started_utc": "2026-11-03T14:31:49+00:00",
