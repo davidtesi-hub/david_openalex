@@ -109,7 +109,7 @@ def run(mode, max_requests=100):
             if cursor in cursors:
                 raise RuntimeError('Repeated cursor; capture incomplete')
             cursors.add(cursor)
-            message = client.fetch({'filter': query, 'rows': 1000, 'cursor': cursor, 'sort': 'published', 'order': 'asc'})
+            message = client.fetch({'filter': query, 'rows': 1000, 'cursor': cursor})
             items, total = message.get('items'), message.get('total-results')
             if not isinstance(items, list) or not isinstance(total, int):
                 raise RuntimeError('Invalid Crossref list response')
