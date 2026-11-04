@@ -152,3 +152,42 @@ los conteos diarios se reconstruyeron desde los articulos almacenados y se conse
 las fechas reales de finalizacion. Esa reconstruccion no reproduce una instantanea
 historica exacta si los registros cambiaron despues. Nuevos escaneos completos
 reemplazan esos conteos por los encontrados en la captura.
+
+## Valoracion de abstracts
+
+Dos workflows independientes: **Abstract importance Qwen mod0** y
+**Abstract importance OpenScholar mod1**. Modelos GGUF CPU y revisiones fijadas
+iguales al evaluador arXiv de referencia: Qwen3-1.7B Q4_K_M y
+Llama-3.1 OpenScholar-8B Q4_K_M. No requieren claves ni consultas OpenAlex.
+
+Se ejecutan manualmente, por repository_dispatch y cada ocho horas a las
+02:00, 10:00 y 18:00 UTC. Cambiar priority_mod0.json o priority_mod1.json
+activa solamente su modelo. Cada uno tiene concurrencia propia, timeout de
+360 minutos y deja de iniciar valoraciones al minuto 345.
+
+Los resultados van a abstract_evaluation/abstract_importance_mod0.sqlite y
+abstract_importance_mod1.sqlite. Cada fila contiene work_id corto, importance
+0-10, modelo, justificacion en espanol, revista, fecha de publicacion, hash del
+abstract, momento de evaluacion y version del prompt. Las notas son estimaciones
+de importancia potencial basadas exclusivamente en el abstract, no validaciones
+cientificas ni una escala calibrada por expertos. No usan citas, nombres ni
+prestigio de revistas para generar la nota.
+
+La seleccion recorre las revistas configuradas, con preferencia por el dia de
+publicacion mas reciente pendiente y rotacion entre revistas de ese dia. El
+Work ID se deduplica globalmente dentro de cada modelo. Se omiten retractados,
+abstracts vacios y abstracts que no caben completos en el contexto; no se truncan.
+Las bibliotecas se leen como una instantanea al iniciar cada run, sin bloquear
+las recolecciones que siguen escribiendo en otros runners.
+
+Las prioridades son arrays de objetos con work_id y requested_at_utc. Se procesan
+antes de la rotacion normal. Las ya valoradas se eliminan al iniciar el siguiente
+run; las no disponibles o fallidas se conservan. Cinco fallos seguidos detienen
+el evaluador y se guardan los avances disponibles.
+
+Se publica despues de la primera valoracion y cada 30 minutos. Todas las conexiones
+SQLite se cierran antes de un rebase; las fuentes no se mantienen abiertas durante
+la inferencia. Cada modelo modifica solo sus propios resultados y prioridad.
+Artifacts de respaldo se intentan guardar incluso en caso de fallo. Las
+valoraciones ya guardadas no se recalculan automaticamente cuando cambia el abstract:
+el hash permite detectar posteriormente esa necesidad.
