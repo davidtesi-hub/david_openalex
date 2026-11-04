@@ -1,0 +1,57 @@
+{
+  "schema_version": 2,
+  "source": "openalex",
+  "journal": "apj",
+  "corpus": "core",
+  "generated_at_utc": "2026-11-04T02:07:34+00:00",
+  "legacy_days": [],
+  "intervals": [
+    {
+      "from_date": "2026-03-09",
+      "to_date": "2026-07-06",
+      "query_filter": "primary_location.source.id:S1980519,type:article,from_publication_date:2026-03-09,to_publication_date:2026-07-06",
+      "status": "ok",
+      "initial_count": 1506,
+      "final_count": 1506,
+      "rows_received": 1506,
+      "unique_count": 1506,
+      "pages": 16,
+      "cursor": null,
+      "last_completed_utc": "2026-11-04T02:07:34+00:00",
+      "last_attempt_utc": "2026-11-04T02:07:06+00:00",
+      "error": null
+    },
+    {
+      "from_date": "2026-07-07",
+      "to_date": "2026-11-03",
+      "query_filter": "primary_location.source.id:S1980519,type:article,from_publication_date:2026-07-07,to_publication_date:2026-11-03",
+      "status": "ok",
+      "initial_count": 1397,
+      "final_count": 1397,
+      "rows_received": 1397,
+      "unique_count": 1397,
+      "pages": 14,
+      "cursor": null,
+      "last_completed_utc": "2026-11-04T02:07:06+00:00",
+      "last_attempt_utc": "2026-11-04T02:06:42+00:00",
+      "error": null
+    }
+  ],
+  "paper_count": 2903,
+  "recent_runs": [
+    {
+      "id": "89bcb6a2-3d3d-4f53-9280-631da2c7c825",
+      "started_utc": "2026-11-04T02:06:42+00:00",
+      "finished_utc": "2026-11-04T02:07:34+00:00",
+      "status": "ok",
+      "reason": null,
+      "attempts": 31,
+      "days_completed": 240,
+      "reported_cost_usd": 0.0030999999999999986,
+      "max_days": null,
+      "max_requests": 100,
+      "intervals_completed": 2,
+      "max_intervals": 2
+    }
+  ]
+}
