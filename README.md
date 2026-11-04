@@ -32,11 +32,11 @@ Cada revista tiene cron activo cada cuatro horas, escalonado diez minutos en UTC
 cobertura diaria, ejecuciones, estado y registro de llamadas sin secretos.
 `library/aanda.coverage.json` es un manifiesto generado desde esa base.
 
-Se consultan intervalos de hasta **30 dias de publicacion**, hasta ayer UTC,
+Se consultan intervalos de hasta **120 dias de publicacion**, hasta ayer UTC,
 con cursor y hasta 100 works por pagina. Una solicitud simultanea y un segundo
 minimo entre llamadas. `--max-intervals` limita bloques, no peticiones.
 Por defecto se intentan dos bloques: el reciente para refresco y otro historico.
-`--interval-days` permite reducir el bloque (30 por defecto).
+`--interval-days` permite reducir el bloque (120 por defecto).
 
 Solo se marca un intervalo completo al agotar sus paginas y comprobar IDs unicos
 y conteos. Cada articulo conserva su fecha individual. Una interrupcion conserva
@@ -44,7 +44,7 @@ las paginas; el intervalo se reinicia con UPSERT en la siguiente ejecucion.
 
 El esquema 2 conserva day_coverage como historial diario y agrega interval_coverage.
 El manifiesto contiene legacy_days e intervals. Los huecos historicos se agrupan
-en periodos contiguos de hasta 30 dias; luego se reconcilian intervalos antiguos.
+en periodos contiguos de hasta 120 dias; luego se reconcilian intervalos antiguos.
 Las altas tardias se detectan al volver a consultar sus fechas. El limite historico
 guardado en collector_state debe revisarse si se incorporan obras anteriores.
 No se usan filtros premium de actualizacion.

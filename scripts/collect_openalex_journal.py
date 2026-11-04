@@ -349,7 +349,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--journal", required=True, choices=list(json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["journals"]))
     parser.add_argument("--max-intervals", type=int, default=2)
-    parser.add_argument("--interval-days", type=int, default=30)
+    parser.add_argument("--interval-days", type=int, default=120)
     parser.add_argument("--max-requests", type=int, default=100)
     parser.add_argument("--max-minutes", type=float, default=25)
     parser.add_argument("--from-date")
