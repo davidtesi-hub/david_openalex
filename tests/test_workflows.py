@@ -25,7 +25,7 @@ class WorkflowTests(unittest.TestCase):
                 self.assertEqual(cron, journal['cron_utc'])
                 self.assertIn(f'--journal {code} ', text)
                 self.assertIn(f'library/{code}.sqlite', text)
-                self.assertIn(f'library/{code}.coverage.json', text)
+                self.assertIn(f'library/{code}.coverage.sqlite', text)
                 self.assertIn("inputs.max_intervals || '2'", text)
                 self.assertIn("inputs.max_requests || '100'", text)
                 self.assertIn('group: openalex-collectors', text)

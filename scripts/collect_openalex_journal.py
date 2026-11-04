@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Collect a selected journal into a resumable, coverage-aware SQLite library."""
 import argparse
+from collections import Counter
 import email.utils
 import json
 import os
@@ -68,6 +69,7 @@ def init_db(db):
             db.execute("ALTER TABLE query_runs ADD COLUMN " + column + " INTEGER")
     db.commit()
     migrate_papers(db)
+    init_daily_coverage(db)
 
 
 class Client:
@@ -172,6 +174,7 @@ def collect_interval(db, client, journal, from_date, to_date):
     db.commit()
     cursor, seen_cursors, ids = "*", set(), set()
     rows, pages, initial = 0, 0, None
+    daily_counts = Counter()
     try:
         while True:
             if cursor in seen_cursors:
@@ -203,6 +206,7 @@ def collect_interval(db, client, journal, from_date, to_date):
                     if work_id in ids:
                         raise RuntimeError("Duplicate Work ID across pages")
                     ids.add(work_id)
+                    daily_counts[work["publication_date"]] += 1
                     db.execute("INSERT INTO papers VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET "
                                "doi=excluded.doi,title=excluded.title,publication_date=excluded.publication_date,"
                                "type=excluded.type,source_id=excluded.source_id,abstract=excluded.abstract,"
@@ -221,6 +225,7 @@ def collect_interval(db, client, journal, from_date, to_date):
                     raise RuntimeError("Pagination count mismatch")
                 break
             cursor = next_cursor
+        record_daily_coverage(db, from_date, to_date, daily_counts, now())
         db.execute("UPDATE interval_coverage SET status='ok',last_completed_utc=?,error=NULL WHERE from_date=? AND to_date=?", (now(), from_date, to_date))
         db.commit()
     except Exception as error:
@@ -229,15 +234,47 @@ def collect_interval(db, client, journal, from_date, to_date):
         raise
 
 
+def init_daily_coverage(db):
+    db.execute("CREATE TABLE IF NOT EXISTS scan_daily_coverage (day TEXT PRIMARY KEY, articles INTEGER NOT NULL, last_scan TEXT NOT NULL)")
+    migrated = db.execute("SELECT value FROM collector_state WHERE key='daily_coverage_migrated'").fetchone()
+    if migrated:
+        return
+    # Historical manifests have interval totals, not counts per publication day.
+    # Reconstruct daily counts from the currently stored articles; keep genuine completion dates.
+    counts = dict(db.execute("SELECT publication_date,count(*) FROM papers GROUP BY publication_date"))
+    entries = list(db.execute("SELECT day,day,last_completed_utc FROM day_coverage WHERE status='ok' AND last_completed_utc IS NOT NULL"))
+    entries += list(db.execute("SELECT from_date,to_date,last_completed_utc FROM interval_coverage WHERE status='ok' AND last_completed_utc IS NOT NULL"))
+    with db:
+        for start, end, scanned in sorted(entries, key=lambda row: row[2]):
+            day = date.fromisoformat(start)
+            while day <= date.fromisoformat(end):
+                db.execute("INSERT INTO scan_daily_coverage VALUES(?,?,?) ON CONFLICT(day) DO UPDATE SET articles=excluded.articles,last_scan=excluded.last_scan",
+                           (day.isoformat(), counts.get(day.isoformat(), 0), scanned[:10]))
+                day += timedelta(days=1)
+        db.execute("INSERT INTO collector_state VALUES('daily_coverage_migrated','1')")
+
+
+def record_daily_coverage(db, first, last, counts, scanned):
+    day = date.fromisoformat(first)
+    while day <= date.fromisoformat(last):
+        db.execute("INSERT INTO scan_daily_coverage VALUES(?,?,?) ON CONFLICT(day) DO UPDATE SET articles=excluded.articles,last_scan=excluded.last_scan",
+                   (day.isoformat(), counts.get(day.isoformat(), 0), scanned[:10]))
+        day += timedelta(days=1)
+
+
 def export_coverage(db, journal_key, path):
-    db.row_factory = sqlite3.Row
-    days = [dict(row) for row in db.execute("SELECT * FROM day_coverage ORDER BY day")]
-    runs = [dict(row) for row in db.execute("SELECT * FROM query_runs ORDER BY started_utc DESC LIMIT 20")]
-    payload = {"schema_version": 2, "source": "openalex", "journal": journal_key,
-               "corpus": "core", "generated_at_utc": now(), "legacy_days": days, "intervals": [dict(row) for row in db.execute("SELECT * FROM interval_coverage ORDER BY from_date")],
-               "paper_count": db.execute("SELECT count(*) FROM papers").fetchone()[0], "recent_runs": runs}
-    temp = path.with_suffix(".json.tmp")
-    temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # Rebuild from durable scan snapshots; never infer fresh counts from partial runs.
+    rows = db.execute("SELECT day,articles,last_scan FROM scan_daily_coverage ORDER BY day").fetchall()
+    temp = path.with_suffix('.sqlite.tmp')
+    if temp.exists():
+        temp.unlink()
+    coverage = sqlite3.connect(temp)
+    try:
+        coverage.execute("CREATE TABLE daily_coverage (day TEXT PRIMARY KEY, articles INTEGER NOT NULL CHECK(articles>=0), last_scan TEXT NOT NULL)")
+        coverage.executemany("INSERT INTO daily_coverage VALUES(?,?,?)", rows)
+        coverage.commit()
+    finally:
+        coverage.close()
     temp.replace(path)
 
 
@@ -337,7 +374,7 @@ def run(args):
                    "days_completed=?,reported_cost_usd=?,intervals_completed=? WHERE id=?",
                    (now(), status, reason, client.attempts, days_completed, client.cost, completed, run_id))
         db.commit()
-        export_coverage(db, args.journal, directory / (args.journal + ".coverage.json"))
+        export_coverage(db, args.journal, directory / (args.journal + ".coverage.sqlite"))
         db.close()
     print(json.dumps({"run_id": run_id, "status": status, "reason": reason,
                       "intervals_completed": completed, "days_completed": days_completed, "attempts": client.attempts,

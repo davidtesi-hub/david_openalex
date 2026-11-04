@@ -59,20 +59,20 @@ jobs:
           name: cmpa-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             library/cmpa.sqlite
-            library/cmpa.coverage.json
+            library/cmpa.coverage.sqlite
           if-no-files-found: ignore
       - name: Publish saved data
         if: always()
         run: |
-          if [ ! -f library/cmpa.sqlite ] || [ ! -f library/cmpa.coverage.json ]; then exit 0; fi
+          if [ ! -f library/cmpa.sqlite ] || [ ! -f library/cmpa.coverage.sqlite ]; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- library/cmpa.sqlite library/cmpa.coverage.json
+          git add -- library/cmpa.sqlite library/cmpa.coverage.sqlite
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update cmpa library and coverage'
           for attempt in 1 2 3; do
             git fetch origin main
-            if ! git diff --quiet "$START_REV" origin/main -- library/cmpa.sqlite library/cmpa.coverage.json; then
+            if ! git diff --quiet "$START_REV" origin/main -- library/cmpa.sqlite library/cmpa.coverage.sqlite; then
               echo 'Remote cmpa data changed; retain artifact instead of overwriting it.' >&2
               exit 1
             fi

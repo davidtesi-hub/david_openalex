@@ -59,20 +59,20 @@ jobs:
           name: apjl-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             library/apjl.sqlite
-            library/apjl.coverage.json
+            library/apjl.coverage.sqlite
           if-no-files-found: ignore
       - name: Publish saved data
         if: always()
         run: |
-          if [ ! -f library/apjl.sqlite ] || [ ! -f library/apjl.coverage.json ]; then exit 0; fi
+          if [ ! -f library/apjl.sqlite ] || [ ! -f library/apjl.coverage.sqlite ]; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- library/apjl.sqlite library/apjl.coverage.json
+          git add -- library/apjl.sqlite library/apjl.coverage.sqlite
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update apjl library and coverage'
           for attempt in 1 2 3; do
             git fetch origin main
-            if ! git diff --quiet "$START_REV" origin/main -- library/apjl.sqlite library/apjl.coverage.json; then
+            if ! git diff --quiet "$START_REV" origin/main -- library/apjl.sqlite library/apjl.coverage.sqlite; then
               echo 'Remote apjl data changed; retain artifact instead of overwriting it.' >&2
               exit 1
             fi

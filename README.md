@@ -30,7 +30,8 @@ Cada revista tiene cron activo cada cuatro horas, escalonado diez minutos en UTC
 
 `library/aanda.sqlite` guarda papers (campos aprobados y columnas consultables),
 cobertura diaria, ejecuciones, estado y registro de llamadas sin secretos.
-`library/aanda.coverage.json` es un manifiesto generado desde esa base.
+`library/aanda.coverage.sqlite` contiene una sola tabla `daily_coverage(day, articles, last_scan)`.
+Las fechas son dias UTC; articles cuenta resultados del ultimo escaneo completo del dia.
 
 Se consultan intervalos de hasta **120 dias de publicacion**, hasta ayer UTC,
 con cursor y hasta 100 works por pagina. Una solicitud simultanea y un segundo
@@ -42,8 +43,8 @@ Solo se marca un intervalo completo al agotar sus paginas y comprobar IDs unicos
 y conteos. Cada articulo conserva su fecha individual. Una interrupcion conserva
 las paginas; el intervalo se reinicia con UPSERT en la siguiente ejecucion.
 
-El esquema 2 conserva day_coverage como historial diario y agrega interval_coverage.
-El manifiesto contiene legacy_days e intervals. Los huecos historicos se agrupan
+La cobertura publica es SQLite: daily_coverage contiene day (PK), articles y last_scan.
+El articulo SQLite conserva el historial operativo y checkpoints por intervalo. Los huecos historicos se agrupan
 en periodos contiguos de hasta 120 dias; luego se reconcilian intervalos antiguos.
 Las altas tardias se detectan al volver a consultar sus fechas. El limite historico
 guardado en collector_state debe revisarse si se incorporan obras anteriores.
@@ -127,3 +128,27 @@ Cada revista conserva su SQLite y manifiesto propios, creados en su primera capt
 | 18 | jmp | Journal of Mathematical Physics | `50 1,5,9,13,17,21 * * *` |
 | 19 | sci | SciPost Physics | `0 2,6,10,14,18,22 * * *` |
 | 20 | mplb | Modern Physics Letters B | `10 2,6,10,14,18,22 * * *` |
+
+## Cobertura diaria en SQLite
+
+Cada revista tiene `library/<journal>.coverage.sqlite`, con una unica tabla:
+
+```sql
+CREATE TABLE daily_coverage (
+  day TEXT PRIMARY KEY,
+  articles INTEGER NOT NULL CHECK(articles >= 0),
+  last_scan TEXT NOT NULL
+);
+```
+
+Cada intervalo terminado actualiza sus dias, incluidos los de cero resultados.
+Una captura parcial no cambia la cobertura diaria anterior. Los conteos se calculan
+con los resultados de ese escaneo, no con la suma historica de papers. Las instantaneas
+diarias se guardan en la base operativa y se exportan atomicamente al SQLite sencillo.
+El workflow publica juntos ambos archivos; los JSON anteriores se retiraron.
+
+En la conversion inicial, los archivos antiguos solo contenian totales por intervalo:
+los conteos diarios se reconstruyeron desde los articulos almacenados y se conservaron
+las fechas reales de finalizacion. Esa reconstruccion no reproduce una instantanea
+historica exacta si los registros cambiaron despues. Nuevos escaneos completos
+reemplazan esos conteos por los encontrados en la captura.

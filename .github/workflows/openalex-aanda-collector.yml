@@ -59,20 +59,20 @@ jobs:
           name: aanda-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             library/aanda.sqlite
-            library/aanda.coverage.json
+            library/aanda.coverage.sqlite
           if-no-files-found: ignore
       - name: Publish saved data
         if: always()
         run: |
-          if [ ! -f library/aanda.sqlite ] || [ ! -f library/aanda.coverage.json ]; then exit 0; fi
+          if [ ! -f library/aanda.sqlite ] || [ ! -f library/aanda.coverage.sqlite ]; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- library/aanda.sqlite library/aanda.coverage.json
+          git add -- library/aanda.sqlite library/aanda.coverage.sqlite
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update aanda library and coverage'
           for attempt in 1 2 3; do
             git fetch origin main
-            if ! git diff --quiet "$START_REV" origin/main -- library/aanda.sqlite library/aanda.coverage.json; then
+            if ! git diff --quiet "$START_REV" origin/main -- library/aanda.sqlite library/aanda.coverage.sqlite; then
               echo 'Remote aanda data changed; retain artifact instead of overwriting it.' >&2
               exit 1
             fi

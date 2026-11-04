@@ -32,6 +32,23 @@ def page(records, total, cursor=None):
 
 
 class CollectorTests(unittest.TestCase):
+    def test_daily_coverage_includes_zeroes_and_survives_partial_refresh(self):
+        self.collect([page([work('1')], 1)])
+        before = self.db.execute('SELECT * FROM scan_daily_coverage ORDER BY day').fetchall()
+        self.assertEqual(len(before), 30)
+        self.assertEqual(before[0][1], 1)
+        self.assertTrue(all(row[1] == 0 for row in before[1:]))
+        with self.assertRaises(c.StopCollection):
+            self.collect([page([work('2')], 2, 'next'), c.StopCollection('limit')])
+        self.assertEqual(before, self.db.execute('SELECT * FROM scan_daily_coverage ORDER BY day').fetchall())
+
+    def test_legacy_conversion_keeps_completed_scan_date(self):
+        self.db.execute("DELETE FROM collector_state WHERE key='daily_coverage_migrated'")
+        self.db.execute("INSERT INTO day_coverage(day,query_filter,status,last_completed_utc) VALUES('2026-09-01','legacy','ok','2026-10-10T12:00:00Z')")
+        c.init_daily_coverage(self.db)
+        self.assertEqual(self.db.execute('SELECT * FROM scan_daily_coverage').fetchall(),
+                         [('2026-09-01', 0, '2026-10-10')])
+
     def test_thirty_day_blocks_have_no_gaps(self):
         first, last = c.date(2026, 9, 1), c.date(2026, 10, 31)
         blocks = list(c.split_range(first, last, 30))

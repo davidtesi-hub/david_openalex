@@ -59,20 +59,20 @@ jobs:
           name: jhep-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             library/jhep.sqlite
-            library/jhep.coverage.json
+            library/jhep.coverage.sqlite
           if-no-files-found: ignore
       - name: Publish saved data
         if: always()
         run: |
-          if [ ! -f library/jhep.sqlite ] || [ ! -f library/jhep.coverage.json ]; then exit 0; fi
+          if [ ! -f library/jhep.sqlite ] || [ ! -f library/jhep.coverage.sqlite ]; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- library/jhep.sqlite library/jhep.coverage.json
+          git add -- library/jhep.sqlite library/jhep.coverage.sqlite
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update jhep library and coverage'
           for attempt in 1 2 3; do
             git fetch origin main
-            if ! git diff --quiet "$START_REV" origin/main -- library/jhep.sqlite library/jhep.coverage.json; then
+            if ! git diff --quiet "$START_REV" origin/main -- library/jhep.sqlite library/jhep.coverage.sqlite; then
               echo 'Remote jhep data changed; retain artifact instead of overwriting it.' >&2
               exit 1
             fi
