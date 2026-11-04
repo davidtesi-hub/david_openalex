@@ -28,7 +28,7 @@ No tiene cron activo inicialmente. El límite interno es 25 minutos y el job tie
 
 ## Datos y cobertura
 
-`library/aanda.sqlite` guarda papers (JSON recibido y columnas consultables),
+`library/aanda.sqlite` guarda papers (campos aprobados y columnas consultables),
 cobertura diaria, ejecuciones, estado y registro de llamadas sin secretos.
 `library/aanda.coverage.json` es un manifiesto generado desde esa base.
 
@@ -49,10 +49,19 @@ Las altas tardias se detectan al volver a consultar sus fechas. El limite histor
 guardado en collector_state debe revisarse si se incorporan obras anteriores.
 No se usan filtros premium de actualizacion.
 
-El JSON es el recibido en las respuestas de lista: OpenAlex puede limitar a 100
-las autorías y ubicaciones mostradas. No equivale a descargar el registro individual
-sin truncamientos. Los registros no se borran automáticamente si desaparecen de
-una consulta posterior o cambian de fuente/tipo; esas diferencias requieren auditoría.
+La seleccion persistida esta definida en `approved_fields.json`. `raw_json` contiene
+solo los campos aprobados, proyectados y normalizados; ya no es el JSON original
+integro de OpenAlex. Los Work/Source/Author IDs pierden el prefijo OpenAlex y los
+DOI pierden https://doi.org/. Las URLs de acceso se mantienen completas. Los temas
+conservan solo nombres; los autores conservan author.id. Los campos ausentes se
+omiten y los valores nulos se mantienen.
+
+La migracion automatica de esquema 3 adapta las filas antiguas en una transaccion,
+sin peticiones a OpenAlex. Conserva first_seen_utc y last_seen_utc como metadatos
+operativos del colector. La cobertura y el registro de peticiones no se proyectan.
+Las respuestas de lista pueden limitar a 100 las autorias y ubicaciones mostradas;
+no se solicita ampliacion individual automatica. No se borran articulos por su
+ausencia posterior; los cambios de fuente/tipo requieren reconciliacion especifica.
 
 ## Límites y errores
 

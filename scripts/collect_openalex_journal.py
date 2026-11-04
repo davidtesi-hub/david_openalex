@@ -11,10 +11,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from field_selection import selected_work, short_id, short_doi, migrate_papers
+
 API = "https://api.openalex.org/works"
 USER_AGENT = "david-openalex/1.0 (https://github.com/davidtesi-hub/david_openalex)"
 
@@ -63,6 +67,7 @@ def init_db(db):
         if column not in columns:
             db.execute("ALTER TABLE query_runs ADD COLUMN " + column + " INTEGER")
     db.commit()
+    migrate_papers(db)
 
 
 class Client:
@@ -203,9 +208,9 @@ def collect_interval(db, client, journal, from_date, to_date):
                                "type=excluded.type,source_id=excluded.source_id,abstract=excluded.abstract,"
                                "raw_json=excluded.raw_json,provider_updated_date=excluded.provider_updated_date,"
                                "last_seen_utc=excluded.last_seen_utc",
-                               (work_id, work.get("doi"), work.get("title"), work.get("publication_date"), "article", source,
+                               (short_id(work_id), short_doi(work.get("doi")), work.get("title"), work.get("publication_date"), "article", short_id(source),
                                 abstract_text(work.get("abstract_inverted_index")),
-                                json.dumps(work, ensure_ascii=False), work.get("updated_date"), timestamp, timestamp))
+                                json.dumps(selected_work(work), ensure_ascii=False), work.get("updated_date"), timestamp, timestamp))
                 rows += len(records)
                 pages += 1
                 db.execute("UPDATE interval_coverage SET initial_count=?,final_count=?,rows_received=?,"
