@@ -22,8 +22,8 @@ Prueba real acotada a una fecha de publicación:
 python scripts/collect_openalex_journal.py --journal aanda --from-date 2026-10-01 --to-date 2026-10-01 --max-intervals 1 --max-requests 5
 ```
 
-En GitHub Actions, lanzar manualmente **OpenAlex Astronomy & Astrophysics collector**.
-No tiene cron activo inicialmente. El límite interno es 25 minutos y el job tiene
+En GitHub Actions, lanzar manualmente **Astronomy & Astrophysics collector**.
+Cada revista tiene cron activo cada cuatro horas, escalonado diez minutos en UTC. El límite interno es 25 minutos y el job tiene
 30 minutos. Los intentos HTTP, descubrimiento y reintentos cuentan para el máximo.
 
 ## Datos y cobertura
@@ -96,3 +96,34 @@ python -m unittest discover -s tests -v
 
 Arquitectura inspirada en `oliverscott-hub/oliver_arxiv`: cobertura diaria,
 SQLite por unidad de recolección y workflow manual por revista.
+
+## Revistas y horarios UTC
+
+El orden del catalogo sigue la seleccion del usuario. El cron es ciclico: por ejemplo,
+una fase de 04:00 incluye tambien 00:00. GitHub puede retrasar u omitir ejecuciones
+programadas; la cobertura persistente recupera los huecos. Todos los colectores
+comparten el grupo openalex-collectors y los limites conservadores de peticiones.
+Cada revista conserva su SQLite y manifiesto propios, creados en su primera captura.
+
+| Orden | Codigo | Revista | Cron UTC |
+|---:|---|---|---|
+| 1 | apj | The Astrophysical Journal | `0 3,7,11,15,19,23 * * *` |
+| 2 | apjl | The Astrophysical Journal Letters | `10 3,7,11,15,19,23 * * *` |
+| 3 | aj | The Astronomical Journal | `20 3,7,11,15,19,23 * * *` |
+| 4 | pasp | Publications of the Astronomical Society of the Pacific | `30 3,7,11,15,19,23 * * *` |
+| 5 | aanda | Astronomy & Astrophysics | `40 3,7,11,15,19,23 * * *` |
+| 6 | mnras | Monthly Notices of the Royal Astronomical Society | `50 3,7,11,15,19,23 * * *` |
+| 7 | natas | Nature Astronomy | `0 0,4,8,12,16,20 * * *` |
+| 8 | jhep | Journal of High Energy Physics | `10 0,4,8,12,16,20 * * *` |
+| 9 | epjc | European Physical Journal C | `20 0,4,8,12,16,20 * * *` |
+| 10 | cmpa | Communications in Mathematical Physics | `30 0,4,8,12,16,20 * * *` |
+| 11 | lmpa | Letters in Mathematical Physics | `40 0,4,8,12,16,20 * * *` |
+| 12 | phrvd | Physical Review D | `50 0,4,8,12,16,20 * * *` |
+| 13 | phrvl | Physical Review Letters | `0 1,5,9,13,17,21 * * *` |
+| 14 | phlb | Physics Letters B | `10 1,5,9,13,17,21 * * *` |
+| 15 | nuphb | Nuclear Physics B | `20 1,5,9,13,17,21 * * *` |
+| 16 | cqgra | Classical and Quantum Gravity | `30 1,5,9,13,17,21 * * *` |
+| 17 | jcap | Journal of Cosmology and Astroparticle Physics | `40 1,5,9,13,17,21 * * *` |
+| 18 | jmp | Journal of Mathematical Physics | `50 1,5,9,13,17,21 * * *` |
+| 19 | sci | SciPost Physics | `0 2,6,10,14,18,22 * * *` |
+| 20 | mplb | Modern Physics Letters B | `10 2,6,10,14,18,22 * * *` |
