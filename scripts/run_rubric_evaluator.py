@@ -14,7 +14,8 @@ from pathlib import Path
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama
 
-from rubric_storage import open_db, save_response
+from rubric_storage import (CLAIMS, CONTRIBUTIONS, LIMITATIONS, METHODS, OPTIONS,
+                            RESULTS, SUPPORT, open_db, save_response)
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_KEY = os.environ.get("RUBRIC_MODEL", "qwen3_8b")
@@ -44,12 +45,47 @@ def prompt(variant: str, abstract: str) -> str:
     if variant == "C":
         instructions = 'Give a direct importance rating from 0 to 10 based only on the abstract. Return {"importance":integer,"justification":"concise scientific reason"}. Do not use the seven-dimension rubric.'
     else:
-        fields = 'Return importance with keys I1 to I7, description with contribution_type, methods, result_status, evidence_control with support, limitations, claim_status, and summary (at most 30 words).'
+        fields = ('The JSON root must contain an "importance" OBJECT with I1–I7, '
+                  'a separate "description" object with contribution_type, methods, result_status, '
+                  'a separate ROOT "evidence_control" object with support, limitations, claim_status, '
+                  'and a root "summary" string (at most 30 words). Do not put I1–I7 at the root '
+                  'or put evidence_control inside description.')
         if variant == "A":
-            instructions = DEFINITIONS + "\n" + fields + ' Add one concise global justification string. No per-dimension evidence.'
+            instructions = DEFINITIONS + "\n" + fields + ' Add a root "justification" string (at most 80 words). No per-dimension evidence. Use exactly the specified keys.'
         else:
-            instructions = DEFINITIONS + "\n" + fields + ' Add evidence with I1 to I7, each {"type":"DIRECT|INFERRED|MISSING","text":"at most 20 words"}. DIRECT means evidence content explicitly appears in the abstract; INFERRED means scientific interpretation; MISSING must accompany UNDETERMINED and only it. No global justification.'
+            instructions = DEFINITIONS + "\n" + fields + ' Add a root "evidence" OBJECT with I1 to I7, each {"type":"DIRECT|INFERRED|MISSING","text":"at most 20 words"}. DIRECT means evidence content explicitly appears in the abstract; INFERRED means scientific interpretation; MISSING must accompany UNDETERMINED and only it. No global justification. Use exactly the specified keys.'
     return intro + instructions + "\n<abstract>\n" + abstract.strip() + "\n</abstract>"
+
+
+def response_schema(variant: str) -> dict:
+    """Constrain the JSON shape and category vocabulary during generation."""
+    def obj(properties):
+        return {"type": "object", "properties": properties,
+                "required": list(properties), "additionalProperties": False}
+
+    text = {"type": "string", "minLength": 1}
+    if variant == "C":
+        return obj({"importance": {"type": "integer", "minimum": 0, "maximum": 10},
+                    "justification": text})
+    if variant not in ("A", "B"):
+        raise ValueError("Unknown rubric variant")
+    importance = obj({f"I{i}": {"type": "string", "enum": list(choices) + ["UNDETERMINED"]}
+                      for i, choices in enumerate(OPTIONS, 1)})
+    description = obj({"contribution_type": {"type": "string", "enum": sorted(CONTRIBUTIONS)},
+                       "methods": {"type": "array", "items": {"type": "string", "enum": sorted(METHODS)}},
+                       "result_status": {"type": "string", "enum": sorted(RESULTS)}})
+    control = obj({"support": {"type": "string", "enum": sorted(SUPPORT)},
+                   "limitations": {"type": "string", "enum": sorted(LIMITATIONS)},
+                   "claim_status": {"type": "string", "enum": sorted(CLAIMS)}})
+    properties = {"importance": importance, "description": description,
+                  "evidence_control": control, "summary": text}
+    if variant == "A":
+        properties["justification"] = text
+    else:
+        properties["evidence"] = obj({f"I{i}": obj({"type": {"type": "string",
+                                                           "enum": ["DIRECT", "INFERRED", "MISSING"]},
+                                                "text": text}) for i in range(1, 8)})
+    return obj(properties)
 
 
 def collect_candidates(db: sqlite3.Connection):
@@ -110,9 +146,9 @@ def infer(model: Llama, variant: str, abstract: str):
     started = time.monotonic()
     output = model.create_chat_completion(
         messages=[{"role": "user", "content": message}],
-        response_format={"type": "json_object"},
+        response_format={"type": "json_object", "schema": response_schema(variant)},
         temperature=0.2, top_p=0.8, seed=17,
-        max_tokens=1200 if variant == "B" else 850,
+        max_tokens=1600 if variant == "B" else 1000 if variant == "A" else 512,
     )
     raw = output["choices"][0]["message"]["content"]
     usage = output.get("usage") or {}
