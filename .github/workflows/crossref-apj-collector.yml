@@ -1,0 +1,75 @@
+name: Crossref The Astrophysical Journal collector
+
+on:
+  schedule:
+    - cron: '3 3,7,11,15,19,23 * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [run-crossref-apj-collector]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crossref-apj-collector
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Record starting revision and deadline
+        run: |
+          echo "START_REV=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "CROSSREF_DEADLINE_EPOCH=$(date -u -d '+24 minutes' +%s)" >> "$GITHUB_ENV"
+
+      - name: Check collector invariants without API requests
+        run: python -m unittest discover -s tests -p 'test_crossref_collectors.py' -v
+
+      - name: Capture 370 publication days through yesterday UTC
+        env:
+          CROSSREF_MAILTO: ${{ secrets.CROSSREF_MAILTO }}
+          CROSSREF_DEADLINE_EPOCH: ${{ env.CROSSREF_DEADLINE_EPOCH }}
+        run: python -u scripts/collect_crossref_journal.py --journal apj --mode crossref --max-requests 100
+
+      - name: Preserve capture as artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: crossref-apj-${{ github.run_id }}-${{ github.run_attempt }}
+          path: library/crossref/apj.sqlite
+          if-no-files-found: ignore
+
+      - name: Publish saved data
+        if: always()
+        run: |
+          if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then git rebase --abort; fi
+          if [ ! -f library/crossref/apj.sqlite ]; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- library/crossref/apj.sqlite
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Update crossref apj capture'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if ! git diff --quiet "$START_REV" origin/main -- library/crossref/apj.sqlite; then
+              echo 'Remote journal data changed; preserve artifact instead of overwriting it.' >&2
+              exit 1
+            fi
+            git rebase origin/main || { git rebase --abort; exit 1; }
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$attempt"
+          done
+          exit 1

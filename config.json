@@ -3,22 +3,26 @@
     "apj": {
       "name": "The Astrophysical Journal",
       "source_id": "S1980519",
-      "cron_utc": "0 3,7,11,15,19,23 * * *"
+      "cron_utc": "0 3,7,11,15,19,23 * * *",
+      "crossref_issn": "0004-637X"
     },
     "apjl": {
       "name": "The Astrophysical Journal Letters",
       "source_id": "S4210175824",
-      "cron_utc": "10 3,7,11,15,19,23 * * *"
+      "cron_utc": "10 3,7,11,15,19,23 * * *",
+      "crossref_issn": "2041-8205"
     },
     "aj": {
       "name": "The Astronomical Journal",
       "source_id": "S100695177",
-      "cron_utc": "20 3,7,11,15,19,23 * * *"
+      "cron_utc": "20 3,7,11,15,19,23 * * *",
+      "crossref_issn": "0004-6256"
     },
     "pasp": {
       "name": "Publications of the Astronomical Society of the Pacific",
       "source_id": "S82835231",
-      "cron_utc": "30 3,7,11,15,19,23 * * *"
+      "cron_utc": "30 3,7,11,15,19,23 * * *",
+      "crossref_issn": "0004-6280"
     },
     "aanda": {
       "name": "Astronomy & Astrophysics",
@@ -27,82 +31,98 @@
       "issn": [
         "0004-6361",
         "1432-0746"
-      ]
+      ],
+      "crossref_issn": "0004-6361"
     },
     "mnras": {
       "name": "Monthly Notices of the Royal Astronomical Society",
       "source_id": "S195663288",
-      "cron_utc": "50 3,7,11,15,19,23 * * *"
+      "cron_utc": "50 3,7,11,15,19,23 * * *",
+      "crossref_issn": "0035-8711"
     },
     "natas": {
       "name": "Nature Astronomy",
       "source_id": "S2764494557",
-      "cron_utc": "0 0,4,8,12,16,20 * * *"
+      "cron_utc": "0 0,4,8,12,16,20 * * *",
+      "crossref_issn": "2397-3366"
     },
     "jhep": {
       "name": "Journal of High Energy Physics",
       "source_id": "S187585107",
-      "cron_utc": "10 0,4,8,12,16,20 * * *"
+      "cron_utc": "10 0,4,8,12,16,20 * * *",
+      "crossref_issn": "1029-8479"
     },
     "epjc": {
       "name": "European Physical Journal C",
       "source_id": "S94052278",
-      "cron_utc": "20 0,4,8,12,16,20 * * *"
+      "cron_utc": "20 0,4,8,12,16,20 * * *",
+      "crossref_issn": "1434-6052"
     },
     "cmpa": {
       "name": "Communications in Mathematical Physics",
       "source_id": "S100601982",
-      "cron_utc": "30 0,4,8,12,16,20 * * *"
+      "cron_utc": "30 0,4,8,12,16,20 * * *",
+      "crossref_issn": "0010-3616"
     },
     "lmpa": {
       "name": "Letters in Mathematical Physics",
       "source_id": "S99746170",
-      "cron_utc": "40 0,4,8,12,16,20 * * *"
+      "cron_utc": "40 0,4,8,12,16,20 * * *",
+      "crossref_issn": "1573-0530"
     },
     "phrvd": {
       "name": "Physical Review D",
       "source_id": "S4210238307",
-      "cron_utc": "50 0,4,8,12,16,20 * * *"
+      "cron_utc": "50 0,4,8,12,16,20 * * *",
+      "crossref_issn": "2470-0010"
     },
     "phrvl": {
       "name": "Physical Review Letters",
       "source_id": "S24807848",
-      "cron_utc": "0 1,5,9,13,17,21 * * *"
+      "cron_utc": "0 1,5,9,13,17,21 * * *",
+      "crossref_issn": "0031-9007"
     },
     "phlb": {
       "name": "Physics Letters B",
       "source_id": "S173952182",
-      "cron_utc": "10 1,5,9,13,17,21 * * *"
+      "cron_utc": "10 1,5,9,13,17,21 * * *",
+      "crossref_issn": "0370-2693"
     },
     "nuphb": {
       "name": "Nuclear Physics B",
       "source_id": "S4210194812",
-      "cron_utc": "20 1,5,9,13,17,21 * * *"
+      "cron_utc": "20 1,5,9,13,17,21 * * *",
+      "crossref_issn": "0550-3213"
     },
     "cqgra": {
       "name": "Classical and Quantum Gravity",
       "source_id": "S171172751",
-      "cron_utc": "30 1,5,9,13,17,21 * * *"
+      "cron_utc": "30 1,5,9,13,17,21 * * *",
+      "crossref_issn": "0264-9381"
     },
     "jcap": {
       "name": "Journal of Cosmology and Astroparticle Physics",
       "source_id": "S120662888",
-      "cron_utc": "40 1,5,9,13,17,21 * * *"
+      "cron_utc": "40 1,5,9,13,17,21 * * *",
+      "crossref_issn": "1475-7516"
     },
     "jmp": {
       "name": "Journal of Mathematical Physics",
       "source_id": "S158241587",
-      "cron_utc": "50 1,5,9,13,17,21 * * *"
+      "cron_utc": "50 1,5,9,13,17,21 * * *",
+      "crossref_issn": "0022-2488"
     },
     "sci": {
       "name": "SciPost Physics",
       "source_id": "S4210195687",
-      "cron_utc": "0 2,6,10,14,18,22 * * *"
+      "cron_utc": "0 2,6,10,14,18,22 * * *",
+      "crossref_issn": "2542-4653"
     },
     "mplb": {
       "name": "Modern Physics Letters B",
       "source_id": "S88537382",
-      "cron_utc": "10 2,6,10,14,18,22 * * *"
+      "cron_utc": "10 2,6,10,14,18,22 * * *",
+      "crossref_issn": "0217-9849"
     }
   },
   "request_interval_seconds": 1.0,

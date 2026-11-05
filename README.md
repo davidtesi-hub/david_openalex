@@ -192,27 +192,36 @@ Artifacts de respaldo se intentan guardar incluso en caso de fallo. Las
 valoraciones ya guardadas no se recalculan automaticamente cuando cambia el abstract:
 el hash permite detectar posteriormente esa necesidad.
 
-## Capturas manuales Crossref y Crossmark de A&A
+## Colectores Crossref y Crossmark por revista
 
-Dos workflows sin cron: Crossref Astronomy & Astrophysics manual y Crossmark
-Astronomy & Astrophysics manual. Solo ISSN 0004-6361, type journal-article,
-30 dias de publicacion hasta ayer UTC (ambos extremos incluidos). El intervalo
-se calcula al ejecutar; el 2026-11-04 comprende 2026-10-05 a 2026-11-03.
+Hay 40 workflows: Crossref y Crossmark para cada una de las 20 revistas de
+`config.json`. Usan el ISSN Crossref verificado de cada revista y filtran
+`type:journal-article`. Se pueden lanzar manualmente, por cron cada cuatro horas
+o por `repository_dispatch` del tipo `run-{crossref|crossmark}-{codigo}-collector`.
+El cron Crossref ocurre tres minutos despues del OpenAlex correspondiente; el
+Crossmark, siete minutos despues. Los cron de GitHub son aproximados.
 
-Crossref guarda registros completos en library/crossref/aanda.sqlite. Crossmark
-usa la misma API REST oficial de Crossref y conserva metadatos de actualizaciones,
-assertions, relaciones y procedencia en library/crossmark/aanda.sqlite. No hay
-una API Crossmark independiente en esta implementacion. Ausencia de metadatos
-Crossmark no demuestra ausencia de retractacion o correccion. El alcance temporal
-es la fecha de publicacion, no un seguimiento exhaustivo de actualizaciones de
-articulos antiguos.
+Cada run recorre los 370 dias de publicacion mas recientes hasta ayer UTC,
+ambos extremos incluidos, en intervalos de hasta 30 dias. Cada intervalo usa
+cursor y `rows=1000` hasta completarse. `interval_coverage` se actualiza solo
+cuando el intervalo termina; `runs` registra resultados y errores. Se puede
+reintentar un intervalo incompleto en el siguiente run. Se detiene ante
+paginacion inconsistente, 100 intentos HTTP o 24 minutos de captura.
 
-Los correos locales de crossref.env y crossmark.env se configuran como secrets
-CROSSREF_MAILTO y CROSSMARK_MAILTO para el polite pool; no se publican en el repo.
-Ambos workflows comparten crossref-api-requests (distinto de OpenAlex), una llamada
-simultanea, al menos un segundo entre llamadas, cursor, hasta 100 intentos y
-reintentos limitados con Retry-After. Guardan datos y artefactos incluso ante error.
-Los registros se actualizan por DOI; runs registra el intervalo y si termino completo.
+Ambos modos conservan **todos** los campos del registro Crossref en
+`library/crossref/{codigo}.sqlite` y `library/crossmark/{codigo}.sqlite`,
+respectivamente. Crossmark usa la misma API REST oficial; no es una API aparte.
+La ausencia de sus campos de actualización no prueba que un artículo no haya
+sido corregido o retractado. Esta ventana de publicacion no sustituye un futuro
+escaneo por fecha de actualización para detectar cambios en artículos antiguos.
+
+Los contactos `CROSSREF_MAILTO` y `CROSSMARK_MAILTO` son secretos de GitHub.
+Los jobs espacian sus solicitudes un segundo, respetan `Retry-After` y guardan
+artefactos incluso si falla un intervalo. Los grupos de concurrencia son por
+modo y revista para evitar solapamiento del mismo archivo. Cada workflow solo
+publica su SQLite si nadie lo cambió en el remoto desde su checkout. Las bases
+manuales anteriores de A&A se conservan y se actualizarán con registros completos
+durante la primera ejecución nueva.
 
 Fuentes oficiales:
 - https://www.crossref.org/documentation/retrieve-metadata/rest-api/

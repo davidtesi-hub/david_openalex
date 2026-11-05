@@ -10,7 +10,7 @@ class WorkflowTests(unittest.TestCase):
     def test_all_journals_have_requested_schedule_and_own_storage(self):
         journals = json.loads((ROOT / 'config.json').read_text(encoding='utf-8'))['journals']
         self.assertEqual(len(journals), 20)
-        self.assertEqual(len(list((ROOT / '.github/workflows').glob('*-collector.yml'))), 20)
+        self.assertEqual(len(list((ROOT / '.github/workflows').glob('openalex-*-collector.yml'))), 20)
         for index, (code, journal) in enumerate(journals.items()):
             with self.subTest(journal=code):
                 text = (ROOT / f'.github/workflows/openalex-{code}-collector.yml').read_text(encoding='utf-8')
