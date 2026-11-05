@@ -40,10 +40,25 @@ class CrossrefCollectorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             db = collector.open_db(Path(directory) / "aanda.sqlite")
             collector.capture_interval(db, FakeClient(), date(2026, 11, 1), date(2026, 11, 1))
-            stored = json.loads(db.execute("SELECT raw_json FROM papers WHERE doi='10.1/x'").fetchone()[0])
+            stored = collector.unpack_record(db.execute("SELECT raw_json_zlib FROM papers WHERE doi='10.1/x'").fetchone()[0])
             self.assertEqual(stored, sample)
+            self.assertLess(len(collector.pack_record(sample)), len(json.dumps(sample).encode()))
             self.assertEqual(db.execute("SELECT expected,retrieved FROM interval_coverage").fetchone(), (1, 1))
             db.close()
+
+    def test_legacy_aanda_rows_are_migrated_without_losing_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "aanda.sqlite"
+            import sqlite3
+            old = sqlite3.connect(path)
+            old.execute("CREATE TABLE papers(doi TEXT PRIMARY KEY,title TEXT,raw_json TEXT,last_scan_utc TEXT)")
+            raw = {"DOI": "10.1/x", "extra": {"author": ["A", "B"]}}
+            old.execute("INSERT INTO papers VALUES(?,?,?,?)", ("10.1/x", "Sample", json.dumps(raw), "2026-11-04"))
+            old.commit(); old.close()
+            new = collector.open_db(path)
+            stored = collector.unpack_record(new.execute("SELECT raw_json_zlib FROM papers").fetchone()[0])
+            self.assertEqual(stored, raw)
+            new.close()
 
     def test_workflows_match_all_journals_and_shifted_cron(self):
         journals = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["journals"]

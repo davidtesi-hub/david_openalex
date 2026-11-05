@@ -210,7 +210,11 @@ paginacion inconsistente, 100 intentos HTTP o 24 minutos de captura.
 
 Ambos modos conservan **todos** los campos del registro Crossref en
 `library/crossref/{codigo}.sqlite` y `library/crossmark/{codigo}.sqlite`,
-respectivamente. Crossmark usa la misma API REST oficial; no es una API aparte.
+respectivamente. El JSON íntegro se comprime con zlib en `papers.raw_json_zlib`
+para mantener cada archivo bajo el límite de GitHub; se recupera con
+`json.loads(zlib.decompress(valor).decode('utf-8'))`. Las antiguas bases A&A
+se migran automáticamente sin descartar campos. Crossmark usa la misma API
+REST oficial; no es una API aparte.
 La ausencia de sus campos de actualización no prueba que un artículo no haya
 sido corregido o retractado. Esta ventana de publicacion no sustituye un futuro
 escaneo por fecha de actualización para detectar cambios en artículos antiguos.

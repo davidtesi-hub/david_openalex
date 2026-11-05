@@ -13,6 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+import zlib
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -92,7 +93,7 @@ def open_db(path: Path):
     db = sqlite3.connect(path)
     db.executescript("""
     CREATE TABLE IF NOT EXISTS papers (
-      doi TEXT PRIMARY KEY, title TEXT, raw_json TEXT NOT NULL, last_scan_utc TEXT NOT NULL);
+      doi TEXT PRIMARY KEY, title TEXT, raw_json_zlib BLOB NOT NULL, last_scan_utc TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS runs (
       id TEXT PRIMARY KEY, mode TEXT, issn TEXT, from_date TEXT, to_date TEXT,
       query_filter TEXT, started_utc TEXT, finished_utc TEXT, status TEXT,
@@ -102,11 +103,32 @@ def open_db(path: Path):
       retrieved INTEGER NOT NULL, last_scan_utc TEXT NOT NULL,
       PRIMARY KEY(from_date,to_date));
     """)
+    columns = {row[1] for row in db.execute("PRAGMA table_info(papers)")}
+    if "raw_json" in columns and "raw_json_zlib" not in columns:
+        # Existing A&A manual databases used uncompressed JSON text.
+        db.execute("""CREATE TABLE papers_compressed (
+          doi TEXT PRIMARY KEY, title TEXT, raw_json_zlib BLOB NOT NULL, last_scan_utc TEXT NOT NULL)""")
+        for doi, title, raw, last_scan in db.execute("SELECT doi,title,raw_json,last_scan_utc FROM papers"):
+            db.execute("INSERT INTO papers_compressed VALUES(?,?,?,?)",
+                       (doi, title, pack_record(json.loads(raw)), last_scan))
+        db.execute("DROP TABLE papers")
+        db.execute("ALTER TABLE papers_compressed RENAME TO papers")
+        db.commit()
+        db.execute("VACUUM")
     return db
 
 
 def stamp():
     return datetime.now(timezone.utc).isoformat()
+
+
+def pack_record(item: dict) -> bytes:
+    """Preserve every provider field, compressed inside the SQLite BLOB."""
+    return zlib.compress(json.dumps(item, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), 6)
+
+
+def unpack_record(blob: bytes) -> dict:
+    return json.loads(zlib.decompress(blob).decode("utf-8"))
 
 
 def capture_interval(db, client: Client, start: date, end: date):
@@ -134,10 +156,10 @@ def capture_interval(db, client: Client, start: date, end: date):
                     raise RuntimeError(f"Repeated DOI in {start}..{end}")
                 seen.add(doi)
                 # Both logical collectors currently retain every provider field.
-                db.execute("""INSERT INTO papers(doi,title,raw_json,last_scan_utc)
+                db.execute("""INSERT INTO papers(doi,title,raw_json_zlib,last_scan_utc)
                     VALUES(?,?,?,?) ON CONFLICT(doi) DO UPDATE SET
-                    title=excluded.title,raw_json=excluded.raw_json,last_scan_utc=excluded.last_scan_utc""",
-                    (doi, " ".join(item.get("title", [])), json.dumps(item, ensure_ascii=False), stamp()))
+                    title=excluded.title,raw_json_zlib=excluded.raw_json_zlib,last_scan_utc=excluded.last_scan_utc""",
+                    (doi, " ".join(item.get("title", [])), pack_record(item), stamp()))
         print(json.dumps({"interval": [str(start), str(end)], "retrieved": len(seen), "expected": expected}), flush=True)
         if len(seen) == expected:
             break
