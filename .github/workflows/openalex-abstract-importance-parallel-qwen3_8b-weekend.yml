@@ -1,4 +1,4 @@
-name: OpenAlex abstract importance parallel evaluator Qwen3-8B · sábado y domingo
+name: OpenAlex abstract importance evaluator Weekend
 
 on:
   schedule:

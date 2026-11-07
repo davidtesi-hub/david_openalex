@@ -1,4 +1,4 @@
-name: OpenAlex abstract importance parallel evaluator Qwen3-8B · viernes
+name: OpenAlex abstract importance evaluator Friday
 
 on:
   schedule:
