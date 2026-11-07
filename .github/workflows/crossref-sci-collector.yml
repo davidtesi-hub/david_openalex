@@ -44,14 +44,6 @@ jobs:
           CROSSREF_DEADLINE_EPOCH: ${{ env.CROSSREF_DEADLINE_EPOCH }}
         run: python -u scripts/collect_crossref_journal.py --journal sci --mode crossref --max-requests 100
 
-      - name: Preserve capture as artifact
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: crossref-sci-${{ github.run_id }}-${{ github.run_attempt }}
-          path: library/crossref/sci.sqlite
-          if-no-files-found: ignore
-
       - name: Publish saved data
         if: always()
         run: |
@@ -65,7 +57,7 @@ jobs:
           for attempt in 1 2 3; do
             git fetch origin main
             if ! git diff --quiet "$START_REV" origin/main -- library/crossref/sci.sqlite; then
-              echo 'Remote journal data changed; preserve artifact instead of overwriting it.' >&2
+              echo 'Remote journal data changed; refusing to overwrite it.' >&2
               exit 1
             fi
             git rebase origin/main || { git rebase --abort; exit 1; }

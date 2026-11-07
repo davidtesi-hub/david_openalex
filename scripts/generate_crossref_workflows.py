@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate the forty journal workflows from config.json."""
+"""Regenerate one Crossref workflow per journal from config.json."""
 import json
 from pathlib import Path
 
@@ -16,11 +16,12 @@ def shifted_cron(value: str, minutes: int):
     return str(shifted) + " " + rest
 
 
-def workflow(code: str, journal: dict, mode: str):
-    path = f"library/{mode}/{code}.sqlite"
-    cron = shifted_cron(journal["cron_utc"], 3 if mode == "crossref" else 7)
-    secret = "CROSSREF_MAILTO" if mode == "crossref" else "CROSSMARK_MAILTO"
-    return f"""name: {mode.capitalize()} {journal['name']} collector
+def workflow(code: str, journal: dict):
+    mode = "crossref"
+    path = f"library/crossref/{code}.sqlite"
+    cron = shifted_cron(journal["cron_utc"], 3)
+    secret = "CROSSREF_MAILTO"
+    return f"""name: Crossref {journal['name']} collector
 
 on:
   schedule:
@@ -66,14 +67,6 @@ jobs:
           CROSSREF_DEADLINE_EPOCH: ${{{{ env.CROSSREF_DEADLINE_EPOCH }}}}
         run: python -u scripts/collect_crossref_journal.py --journal {code} --mode {mode} --max-requests 100
 
-      - name: Preserve capture as artifact
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: {mode}-{code}-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}
-          path: {path}
-          if-no-files-found: ignore
-
       - name: Publish saved data
         if: always()
         run: |
@@ -87,7 +80,7 @@ jobs:
           for attempt in 1 2 3; do
             git fetch origin main
             if ! git diff --quiet "$START_REV" origin/main -- {path}; then
-              echo 'Remote journal data changed; preserve artifact instead of overwriting it.' >&2
+              echo 'Remote journal data changed; refusing to overwrite it.' >&2
               exit 1
             fi
             git rebase origin/main || {{ git rebase --abort; exit 1; }}
@@ -103,9 +96,8 @@ def main():
     for code, journal in journals.items():
         if "crossref_issn" not in journal:
             raise ValueError(f"Missing Crossref ISSN for {code}")
-        for mode in ("crossref", "crossmark"):
-            (WORKFLOWS / f"{mode}-{code}-collector.yml").write_text(
-                workflow(code, journal, mode), encoding="utf-8")
+        (WORKFLOWS / f"crossref-{code}-collector.yml").write_text(
+            workflow(code, journal), encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -52,15 +52,6 @@ jobs:
           if [ -n "$FROM_DATE" ]; then args+=(--from-date "$FROM_DATE"); fi
           if [ -n "$TO_DATE" ]; then args+=(--to-date "$TO_DATE"); fi
           python scripts/collect_openalex_journal.py "${args[@]}"
-      - name: Preserve SQLite and coverage as artifact
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: jcap-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            library/jcap.sqlite
-            library/jcap.coverage.sqlite
-          if-no-files-found: ignore
       - name: Publish saved data
         if: always()
         run: |
@@ -73,7 +64,7 @@ jobs:
           for attempt in 1 2 3; do
             git fetch origin main
             if ! git diff --quiet "$START_REV" origin/main -- library/jcap.sqlite library/jcap.coverage.sqlite; then
-              echo 'Remote jcap data changed; retain artifact instead of overwriting it.' >&2
+              echo 'Remote jcap data changed; refusing to overwrite it.' >&2
               exit 1
             fi
             git rebase origin/main || { git rebase --abort; exit 1; }

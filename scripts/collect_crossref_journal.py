@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture full Crossref records by journal and publication date, for two outputs."""
+"""Capture Crossref publication dates and update status by journal."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-import zlib
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -93,7 +92,11 @@ def open_db(path: Path):
     db = sqlite3.connect(path)
     db.executescript("""
     CREATE TABLE IF NOT EXISTS papers (
-      doi TEXT PRIMARY KEY, title TEXT, raw_json_zlib BLOB NOT NULL, last_scan_utc TEXT NOT NULL);
+      doi TEXT PRIMARY KEY,
+      published_online TEXT, published_print TEXT, issued TEXT, accepted TEXT,
+      created TEXT, deposited TEXT, indexed TEXT,
+      status TEXT NOT NULL DEFAULT 'unknown', updates_json TEXT NOT NULL DEFAULT '[]',
+      last_checked_utc TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS runs (
       id TEXT PRIMARY KEY, mode TEXT, issn TEXT, from_date TEXT, to_date TEXT,
       query_filter TEXT, started_utc TEXT, finished_utc TEXT, status TEXT,
@@ -103,18 +106,6 @@ def open_db(path: Path):
       retrieved INTEGER NOT NULL, last_scan_utc TEXT NOT NULL,
       PRIMARY KEY(from_date,to_date));
     """)
-    columns = {row[1] for row in db.execute("PRAGMA table_info(papers)")}
-    if "raw_json" in columns and "raw_json_zlib" not in columns:
-        # Existing A&A manual databases used uncompressed JSON text.
-        db.execute("""CREATE TABLE papers_compressed (
-          doi TEXT PRIMARY KEY, title TEXT, raw_json_zlib BLOB NOT NULL, last_scan_utc TEXT NOT NULL)""")
-        for doi, title, raw, last_scan in db.execute("SELECT doi,title,raw_json,last_scan_utc FROM papers"):
-            db.execute("INSERT INTO papers_compressed VALUES(?,?,?,?)",
-                       (doi, title, pack_record(json.loads(raw)), last_scan))
-        db.execute("DROP TABLE papers")
-        db.execute("ALTER TABLE papers_compressed RENAME TO papers")
-        db.commit()
-        db.execute("VACUUM")
     return db
 
 
@@ -122,13 +113,52 @@ def stamp():
     return datetime.now(timezone.utc).isoformat()
 
 
-def pack_record(item: dict) -> bytes:
-    """Preserve every provider field, compressed inside the SQLite BLOB."""
-    return zlib.compress(json.dumps(item, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), 6)
+def date_value(record: dict, key: str):
+    value = record.get(key)
+    if not isinstance(value, dict):
+        return None
+    parts = value.get("date-parts")
+    if not parts or not parts[0]:
+        return None
+    return "-".join(f"{int(part):02d}" if i else f"{int(part):04d}" for i, part in enumerate(parts[0]))
 
 
-def unpack_record(blob: bytes) -> dict:
-    return json.loads(zlib.decompress(blob).decode("utf-8"))
+def update_data(record: dict):
+    updates = []
+    for direction in ("updated-by", "update-to"):
+        entries = record.get(direction) or []
+        for entry in entries:
+            updates.append({
+                "direction": direction,
+                "doi": (entry.get("DOI") or "").lower() or None,
+                "type": entry.get("type"),
+                "label": entry.get("label"),
+                "date": date_value(entry, "updated"),
+            })
+    types = {str(update.get("type", "")).lower() for update in updates if update["direction"] == "updated-by"}
+    if types & {"retraction", "withdrawal", "removal", "partial_retraction"}:
+        status = "retracted"
+    elif any(update["direction"] == "updated-by" for update in updates):
+        status = "updated"
+    elif any(update["direction"] == "update-to" for update in updates):
+        status = "update_notice"
+    else:
+        status = "unknown"
+    return status, json.dumps(updates, ensure_ascii=False, separators=(",", ":"))
+
+
+def normalized_record(record: dict):
+    status, updates = update_data(record)
+    return (
+        date_value(record, "published-online"),
+        date_value(record, "published-print"),
+        date_value(record, "issued"),
+        date_value(record, "accepted"),
+        date_value(record, "created"),
+        date_value(record, "deposited"),
+        date_value(record, "indexed"),
+        status, updates, stamp(),
+    )
 
 
 def capture_interval(db, client: Client, start: date, end: date):
@@ -155,11 +185,18 @@ def capture_interval(db, client: Client, start: date, end: date):
                 if doi in seen:
                     raise RuntimeError(f"Repeated DOI in {start}..{end}")
                 seen.add(doi)
-                # Both logical collectors currently retain every provider field.
-                db.execute("""INSERT INTO papers(doi,title,raw_json_zlib,last_scan_utc)
-                    VALUES(?,?,?,?) ON CONFLICT(doi) DO UPDATE SET
-                    title=excluded.title,raw_json_zlib=excluded.raw_json_zlib,last_scan_utc=excluded.last_scan_utc""",
-                    (doi, " ".join(item.get("title", [])), pack_record(item), stamp()))
+                db.execute("""INSERT INTO papers(
+                    doi,published_online,published_print,issued,accepted,created,deposited,indexed,status,updates_json,last_checked_utc)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(doi) DO UPDATE SET
+                    published_online=COALESCE(excluded.published_online,published_online),
+                    published_print=COALESCE(excluded.published_print,published_print),
+                    issued=COALESCE(excluded.issued,issued), accepted=COALESCE(excluded.accepted,accepted),
+                    created=COALESCE(excluded.created,created), deposited=COALESCE(excluded.deposited,deposited),
+                    indexed=COALESCE(excluded.indexed,indexed),
+                    status=CASE WHEN excluded.status='unknown' THEN status ELSE excluded.status END,
+                    updates_json=CASE WHEN excluded.updates_json='[]' THEN updates_json ELSE excluded.updates_json END,
+                    last_checked_utc=excluded.last_checked_utc""",
+                    (doi, *normalized_record(item)))
         print(json.dumps({"interval": [str(start), str(end)], "retrieved": len(seen), "expected": expected}), flush=True)
         if len(seen) == expected:
             break
@@ -174,12 +211,14 @@ def capture_interval(db, client: Client, start: date, end: date):
     return expected, len(seen)
 
 
-def run(journal: str, mode: str, max_requests: int = 100):
+def run(journal: str, mode: str = "crossref", max_requests: int = 100):
     journals = json.loads(CONFIG.read_text(encoding="utf-8"))["journals"]
     if journal not in journals:
         raise ValueError(f"Unknown journal: {journal}")
     issn = journals[journal]["crossref_issn"]
-    mailto = os.environ.get(("CROSSMARK" if mode == "crossmark" else "CROSSREF") + "_MAILTO", "").strip()
+    if mode != "crossref":
+        raise ValueError("Only the Crossref collector is supported")
+    mailto = os.environ.get("CROSSREF_MAILTO", "").strip()
     if "@" not in mailto or "\r" in mailto or "\n" in mailto:
         raise ValueError("Missing contact email secret")
     start, end = window()
@@ -214,7 +253,7 @@ def run(journal: str, mode: str, max_requests: int = 100):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--journal", required=True)
-    parser.add_argument("--mode", choices=("crossref", "crossmark"), required=True)
+    parser.add_argument("--mode", choices=("crossref",), default="crossref")
     parser.add_argument("--max-requests", type=int, default=100)
     args = parser.parse_args()
     if args.max_requests < 1:
