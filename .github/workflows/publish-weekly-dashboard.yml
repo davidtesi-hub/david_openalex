@@ -1,6 +1,8 @@
 name: Publish weekly OpenAlex dashboard
 
 on:
+  schedule:
+    - cron: '0 */2 * * *'
   push:
     branches: [main]
     paths:
