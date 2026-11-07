@@ -3,14 +3,6 @@ name: Publish weekly OpenAlex dashboard
 on:
   schedule:
     - cron: '0 */2 * * *'
-  push:
-    branches: [main]
-    paths:
-      - 'dashboard/**'
-      - 'library/*.sqlite'
-      - 'library/*.coverage.sqlite'
-      - 'abstract_evaluation/rubric_v3_qwen3_8b*.sqlite'
-      - '.github/workflows/publish-weekly-dashboard.yml'
   workflow_dispatch:
 
 permissions:
