@@ -1,6 +1,8 @@
-name: OpenAlex abstract importance parallel evaluator Qwen3-8B
+name: OpenAlex abstract importance parallel evaluator Qwen3-8B · lunes
 
 on:
+  schedule:
+    - cron: '0 2,10,18 * * *'
   workflow_dispatch:
     inputs:
       max_papers:
@@ -14,7 +16,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: openalex-parallel-abstract-importance
+  group: openalex-parallel-qwen3-8b-monday
   cancel-in-progress: false
 
 jobs:
@@ -58,6 +60,7 @@ jobs:
         env:
           IMPORTANCE_DEADLINE_EPOCH: ${{ env.IMPORTANCE_DEADLINE_EPOCH }}
           RUBRIC_MODEL: qwen3_8b
+          RUBRIC_WEEKDAY: monday
           RUBRIC_MAX_PAPERS: ${{ inputs.max_papers || '0' }}
         run: python -u scripts/run_rubric_v3_arxiv_style.py
 
@@ -80,8 +83,7 @@ jobs:
           fi
           git commit -m 'Guardar valoraciones paralelas de OpenAlex'
           for attempt in 1 2 3; do
-            git pull --rebase origin main
-            if git push origin HEAD:main; then
+            if git pull --rebase origin main && git push origin HEAD:main; then
               exit 0
             fi
             sleep 2

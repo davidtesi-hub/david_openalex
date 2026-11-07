@@ -9,6 +9,7 @@ import sqlite3
 import subprocess
 import time
 from collections import defaultdict, deque
+from datetime import date
 from itertools import chain
 from pathlib import Path
 
@@ -27,7 +28,22 @@ MODELS = {
 if MODEL_KEY not in MODELS:
     raise ValueError("Unknown model")
 MODEL_REPO, MODEL_FILE, MODEL_LABEL = MODELS[MODEL_KEY]
-DB_PATH = ROOT / "abstract_evaluation" / f"rubric_v3_arxiv_style_{MODEL_KEY}.sqlite"
+SHARD = os.environ.get("RUBRIC_WEEKDAY", "")
+WEEKDAYS = {
+    "monday": {0}, "tuesday": {1}, "wednesday": {2},
+    "thursday": {3}, "friday": {4}, "weekend": {5, 6},
+}
+if SHARD and (SHARD not in WEEKDAYS or MODEL_KEY != "qwen3_8b"):
+    raise ValueError("Invalid rubric weekday shard")
+suffix = f"_{SHARD}" if SHARD and SHARD != "monday" else ""
+DB_PATH = ROOT / "abstract_evaluation" / f"rubric_v3_arxiv_style_{MODEL_KEY}{suffix}.sqlite"
+
+
+def publication_weekday(value):
+    try:
+        return date.fromisoformat((value or "")[:10]).weekday()
+    except ValueError:
+        return None
 
 # The grammar enforces seven ordered choices. The parser independently verifies it.
 GRAMMAR = 'root ::= "T=" type "\\nQ1=" choice "\\nE1=\\\"" txt "\\\"\\nJ1=\\\"" txt "\\\"\\nQ2=" choice "\\nE2=\\\"" txt "\\\"\\nJ2=\\\"" txt "\\\"\\nQ3=" choice "\\nE3=\\\"" txt "\\\"\\nJ3=\\\"" txt "\\\"\\nQ4=" choice "\\nE4=\\\"" txt "\\\"\\nJ4=\\\"" txt "\\\""\nchoice ::= [AaBbCcDdUu]\ntype ::= [TtEeMmSsPpUu]\ntxt ::= [^"\\n]*\n'
@@ -40,6 +56,7 @@ def collect_candidates(db: sqlite3.Connection):
     journals = list(json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["journals"])
     done = {row[0] for row in db.execute("SELECT id FROM evaluations")}
     pending = {}
+    seen = set(done)
     for journal in journals:
         path = ROOT / "library" / f"{journal}.sqlite"
         if not path.exists():
@@ -52,8 +69,12 @@ def collect_candidates(db: sqlite3.Connection):
                 AND COALESCE(json_extract(raw_json,'$.is_retracted'),0)=0
                 ORDER BY publication_date DESC,id DESC
             """):
-                if work_id not in done and work_id not in pending:
-                    pending[work_id] = (work_id, abstract, day or '', journal)
+                if work_id in seen:
+                    continue
+                seen.add(work_id)
+                if SHARD and publication_weekday(day) not in WEEKDAYS[SHARD]:
+                    continue
+                pending[work_id] = (work_id, abstract, day or "", journal)
         finally:
             source.close()
     return list(pending.values()), journals
