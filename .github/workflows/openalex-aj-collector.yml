@@ -1,4 +1,4 @@
-name: "The Astronomical Journal collector"
+name: The Astronomical Journal - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 03:20.

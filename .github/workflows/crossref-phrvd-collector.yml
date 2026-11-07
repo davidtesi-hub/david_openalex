@@ -1,4 +1,4 @@
-name: Crossref Physical Review D collector
+name: Physical Review D - Crossref collector
 
 on:
   schedule:

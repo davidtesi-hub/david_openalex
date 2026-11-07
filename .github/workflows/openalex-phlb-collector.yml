@@ -1,4 +1,4 @@
-name: "Physics Letters B collector"
+name: Physics Letters B - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 05:10.

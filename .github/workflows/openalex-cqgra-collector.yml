@@ -1,4 +1,4 @@
-name: "Classical and Quantum Gravity collector"
+name: Classical and Quantum Gravity - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 05:30.

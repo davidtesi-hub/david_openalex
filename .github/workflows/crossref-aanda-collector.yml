@@ -1,4 +1,4 @@
-name: Crossref Astronomy & Astrophysics collector
+name: Astronomy & Astrophysics - Crossref collector
 
 on:
   schedule:

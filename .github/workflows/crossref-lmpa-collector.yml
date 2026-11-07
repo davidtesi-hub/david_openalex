@@ -1,4 +1,4 @@
-name: Crossref Letters in Mathematical Physics collector
+name: Letters in Mathematical Physics - Crossref collector
 
 on:
   schedule:

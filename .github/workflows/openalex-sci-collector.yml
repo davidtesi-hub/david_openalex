@@ -1,4 +1,4 @@
-name: "SciPost Physics collector"
+name: SciPost Physics - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 06:00.

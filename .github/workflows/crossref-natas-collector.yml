@@ -1,4 +1,4 @@
-name: Crossref Nature Astronomy collector
+name: Nature Astronomy - Crossref collector
 
 on:
   schedule:

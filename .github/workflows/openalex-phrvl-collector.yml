@@ -1,4 +1,4 @@
-name: "Physical Review Letters collector"
+name: Physical Review Letters - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 05:00.

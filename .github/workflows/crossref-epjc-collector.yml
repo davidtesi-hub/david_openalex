@@ -1,4 +1,4 @@
-name: Crossref European Physical Journal C collector
+name: European Physical Journal C - Crossref collector
 
 on:
   schedule:

@@ -1,4 +1,4 @@
-name: Crossref Physical Review Letters collector
+name: Physical Review Letters - Crossref collector
 
 on:
   schedule:

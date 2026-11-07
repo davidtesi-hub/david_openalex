@@ -1,4 +1,4 @@
-name: "Astronomy & Astrophysics collector"
+name: Astronomy & Astrophysics - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 03:40.

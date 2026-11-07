@@ -1,4 +1,4 @@
-name: "Journal of Cosmology and Astroparticle Physics collector"
+name: Journal of Cosmology and Astroparticle Physics - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 05:40.

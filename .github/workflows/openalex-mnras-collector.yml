@@ -1,4 +1,4 @@
-name: "Monthly Notices of the Royal Astronomical Society collector"
+name: Monthly Notices of the Royal Astronomical Society - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 03:50.

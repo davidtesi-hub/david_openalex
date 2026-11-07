@@ -1,4 +1,4 @@
-name: Crossref Modern Physics Letters B collector
+name: Modern Physics Letters B - Crossref collector
 
 on:
   schedule:

@@ -1,4 +1,4 @@
-name: Crossref Nuclear Physics B collector
+name: Nuclear Physics B - Crossref collector
 
 on:
   schedule:

@@ -1,4 +1,4 @@
-name: "The Astrophysical Journal Letters collector"
+name: The Astrophysical Journal Letters - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 03:10.

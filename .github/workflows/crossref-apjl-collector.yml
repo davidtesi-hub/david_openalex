@@ -1,4 +1,4 @@
-name: Crossref The Astrophysical Journal Letters collector
+name: The Astrophysical Journal Letters - Crossref collector
 
 on:
   schedule:

@@ -1,4 +1,4 @@
-name: "Journal of Mathematical Physics collector"
+name: Journal of Mathematical Physics - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 05:50.

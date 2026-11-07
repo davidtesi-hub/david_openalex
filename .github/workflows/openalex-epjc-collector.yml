@@ -1,4 +1,4 @@
-name: "European Physical Journal C collector"
+name: European Physical Journal C - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 04:20.

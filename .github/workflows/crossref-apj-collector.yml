@@ -1,4 +1,4 @@
-name: Crossref The Astrophysical Journal collector
+name: The Astrophysical Journal - Crossref collector
 
 on:
   schedule:

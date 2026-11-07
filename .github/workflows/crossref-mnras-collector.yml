@@ -1,4 +1,4 @@
-name: Crossref Monthly Notices of the Royal Astronomical Society collector
+name: Monthly Notices of the Royal Astronomical Society - Crossref collector
 
 on:
   schedule:

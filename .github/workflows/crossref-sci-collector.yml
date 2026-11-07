@@ -1,4 +1,4 @@
-name: Crossref SciPost Physics collector
+name: SciPost Physics - Crossref collector
 
 on:
   schedule:

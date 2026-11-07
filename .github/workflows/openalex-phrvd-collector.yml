@@ -1,4 +1,4 @@
-name: "Physical Review D collector"
+name: Physical Review D - OpenAlex collector
 on:
   schedule:
     # Every four hours, UTC; phase starts at 04:50.

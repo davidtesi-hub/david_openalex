@@ -1,4 +1,4 @@
-name: Crossref Classical and Quantum Gravity collector
+name: Classical and Quantum Gravity - Crossref collector
 
 on:
   schedule:
