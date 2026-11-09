@@ -97,6 +97,15 @@ class CollectorTests(unittest.TestCase):
         self.collect([page([], 0)])
         self.assertEqual(self.status(), 'ok')
 
+    def test_current_day_is_stored_without_coverage(self):
+        item = work('today')
+        item['publication_date'] = '2026-11-05'
+        c.collect_interval(self.db, FakeClient([page([item], 1)]), self.journal,
+                           '2026-11-05', '2026-11-05', provisional=True)
+        self.assertEqual(self.db.execute('SELECT count(*) FROM papers').fetchone()[0], 1)
+        self.assertEqual(self.status(), 'partial')
+        self.assertEqual(self.db.execute('SELECT count(*) FROM scan_daily_coverage').fetchone()[0], 0)
+
     def test_interruption_keeps_page_and_restart_recovers(self):
         with self.assertRaises(c.StopCollection):
             self.collect([page([work('1')], 2, 'next'), c.StopCollection('request_limit')])

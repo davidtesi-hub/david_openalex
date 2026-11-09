@@ -161,7 +161,7 @@ def normalized_record(record: dict):
     )
 
 
-def capture_interval(db, client: Client, start: date, end: date):
+def capture_interval(db, client: Client, start: date, end: date, *, provisional: bool = False):
     query = f"type:journal-article,from-pub-date:{start},until-pub-date:{end}"
     seen, cursors = set(), set()
     cursor, expected = "*", None
@@ -203,11 +203,12 @@ def capture_interval(db, client: Client, start: date, end: date):
         if len(items) < PAGE_SIZE or not message.get("next-cursor") or len(seen) > expected:
             raise RuntimeError(f"Incomplete pagination in {start}..{end}")
         cursor = message["next-cursor"]
-    with db:
-        db.execute("""INSERT INTO interval_coverage VALUES(?,?,?,?,?)
-            ON CONFLICT(from_date,to_date) DO UPDATE SET
-            expected=excluded.expected,retrieved=excluded.retrieved,last_scan_utc=excluded.last_scan_utc""",
-            (str(start), str(end), expected, len(seen), stamp()))
+    if not provisional:
+        with db:
+            db.execute("""INSERT INTO interval_coverage VALUES(?,?,?,?,?)
+                ON CONFLICT(from_date,to_date) DO UPDATE SET
+                expected=excluded.expected,retrieved=excluded.retrieved,last_scan_utc=excluded.last_scan_utc""",
+                (str(start), str(end), expected, len(seen), stamp()))
     return expected, len(seen)
 
 
@@ -221,11 +222,12 @@ def run(journal: str, mode: str = "crossref", max_requests: int = 100):
     mailto = os.environ.get("CROSSREF_MAILTO", "").strip()
     if "@" not in mailto or "\r" in mailto or "\n" in mailto:
         raise ValueError("Missing contact email secret")
-    start, end = window()
+    today = datetime.now(timezone.utc).date()
+    start, end = window(today)
     db = open_db(ROOT / "library" / mode / f"{journal}.sqlite")
     ident = str(uuid.uuid4())
     db.execute("""INSERT INTO runs(id,mode,issn,from_date,to_date,query_filter,started_utc,status)
-        VALUES(?,?,?,?,?,?,?,?)""", (ident, mode, issn, str(start), str(end),
+        VALUES(?,?,?,?,?,?,?,?)""", (ident, mode, issn, str(start), str(today),
         "type:journal-article,from-pub-date:...,until-pub-date:...", stamp(), "running"))
     db.commit()
     deadline = min(float(os.environ.get("CROSSREF_DEADLINE_EPOCH", time.time() + 24 * 60)), time.time() + 24 * 60)
@@ -233,6 +235,10 @@ def run(journal: str, mode: str = "crossref", max_requests: int = 100):
     expected = retrieved = 0
     status, error = "ok", None
     try:
+        # Store today's available records without declaring the day complete.
+        total, count = capture_interval(db, client, today, today, provisional=True)
+        expected += total
+        retrieved += count
         for left, right in intervals(start, end):
             total, count = capture_interval(db, client, left, right)
             expected += total
@@ -244,7 +250,8 @@ def run(journal: str, mode: str = "crossref", max_requests: int = 100):
             WHERE id=?""", (stamp(), status, expected, retrieved, client.attempts, error, ident))
         db.commit()
         db.close()
-    print(json.dumps({"journal": journal, "mode": mode, "from_date": str(start), "to_date": str(end),
+    print(json.dumps({"journal": journal, "mode": mode, "from_date": str(start), "to_date": str(today),
+                      "covered_through_utc_day": str(end), "provisional_utc_day": str(today),
                       "status": status, "completed_records": retrieved, "requests": client.attempts,
                       "error": error}), flush=True)
     return 0 if status == "ok" else 1

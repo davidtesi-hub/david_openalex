@@ -48,6 +48,24 @@ class CrossrefCollectorTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT expected,retrieved FROM interval_coverage").fetchone(), (1, 1))
             db.close()
 
+    def test_current_day_is_stored_without_coverage(self):
+        sample = {"DOI": "10.1/today", "type": "journal-article", "ISSN": ["0004-6361"],
+                  "published-online": {"date-parts": [[2026, 11, 5]]}}
+
+        class FakeClient:
+            issn = "0004-6361"
+
+            def fetch(self, params):
+                return {"items": [sample], "total-results": 1}
+
+        with tempfile.TemporaryDirectory() as directory:
+            db = collector.open_db(Path(directory) / "aanda.sqlite")
+            collector.capture_interval(db, FakeClient(), date(2026, 11, 5),
+                                       date(2026, 11, 5), provisional=True)
+            self.assertEqual(db.execute('SELECT count(*) FROM papers').fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT count(*) FROM interval_coverage').fetchone()[0], 0)
+            db.close()
+
     def test_workflows_match_all_journals_and_shifted_cron(self):
         journals = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["journals"]
         self.assertEqual(len(journals), 20)

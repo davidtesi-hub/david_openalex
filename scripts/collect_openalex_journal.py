@@ -163,7 +163,7 @@ def journal_filter(journal):
     return "primary_location.source.id:%s,type:article" % journal["source_id"]
 
 
-def collect_interval(db, client, journal, from_date, to_date):
+def collect_interval(db, client, journal, from_date, to_date, *, provisional=False):
     if from_date > to_date:
         raise ValueError("Reversed interval")
     query = journal_filter(journal) + ",from_publication_date:%s,to_publication_date:%s" % (from_date, to_date)
@@ -225,8 +225,10 @@ def collect_interval(db, client, journal, from_date, to_date):
                     raise RuntimeError("Pagination count mismatch")
                 break
             cursor = next_cursor
-        record_daily_coverage(db, from_date, to_date, daily_counts, now())
-        db.execute("UPDATE interval_coverage SET status='ok',last_completed_utc=?,error=NULL WHERE from_date=? AND to_date=?", (now(), from_date, to_date))
+        if not provisional:
+            record_daily_coverage(db, from_date, to_date, daily_counts, now())
+        db.execute("UPDATE interval_coverage SET status=?,last_completed_utc=?,error=NULL WHERE from_date=? AND to_date=?",
+                   ("partial" if provisional else "ok", now(), from_date, to_date))
         db.commit()
     except Exception as error:
         db.execute("UPDATE interval_coverage SET status='error',error=? WHERE from_date=? AND to_date=?", (str(error), from_date, to_date))
@@ -345,7 +347,8 @@ def run(args):
     client = Client(db, run_id, key, config, args.max_requests, time.monotonic() + args.max_minutes * 60)
     completed, days_completed, status, reason = 0, 0, "ok", None
     try:
-        yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
+        today = datetime.now(timezone.utc).date()
+        yesterday = today - timedelta(days=1)
         state = db.execute("SELECT value FROM collector_state WHERE key='archive_start'").fetchone()
         if state:
             archive_start = date.fromisoformat(state[0])
@@ -360,6 +363,11 @@ def run(args):
         candidates = plan_intervals(db, archive_start, yesterday, args.interval_days,
                                     args.from_date, args.to_date)
         days_completed = 0
+        if not args.from_date:
+            # Today's publications are useful immediately, but remain outside coverage.
+            collect_interval(db, client, journal, today.isoformat(), today.isoformat(), provisional=True)
+            print(json.dumps({"from_date": today.isoformat(), "to_date": today.isoformat(),
+                              "status": "partial"}), flush=True)
         for first, last in candidates[:args.max_intervals]:
             collect_interval(db, client, journal, first.isoformat(), last.isoformat())
             completed += 1
