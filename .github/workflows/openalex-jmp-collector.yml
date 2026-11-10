@@ -1,4 +1,4 @@
-name: Journal of Mathematical Physics - OpenAlex collector
+name: 0 Journal of Mathematical Physics OA
 on:
   schedule:
     # Every four hours, UTC; phase starts at 05:50.

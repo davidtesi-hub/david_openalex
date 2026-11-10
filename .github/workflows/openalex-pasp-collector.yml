@@ -1,4 +1,4 @@
-name: Publications of the Astronomical Society of the Pacific - OpenAlex collector
+name: 0 Publications of the Astronomical Society of the Pacific OA
 on:
   schedule:
     # Every four hours, UTC; phase starts at 03:30.

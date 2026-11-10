@@ -21,7 +21,7 @@ def workflow(code: str, journal: dict):
     path = f"library/crossref/{code}.sqlite"
     cron = shifted_cron(journal["cron_utc"], 3)
     secret = "CROSSREF_MAILTO"
-    return f"""name: {journal['name']} - Crossref collector
+    return f"""name: 0 {journal['name']} CR
 
 on:
   schedule:

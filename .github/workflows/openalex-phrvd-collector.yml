@@ -1,4 +1,4 @@
-name: Physical Review D - OpenAlex collector
+name: 0 Physical Review D OA
 on:
   schedule:
     # Every four hours, UTC; phase starts at 04:50.

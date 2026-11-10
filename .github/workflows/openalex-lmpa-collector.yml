@@ -1,4 +1,4 @@
-name: Letters in Mathematical Physics - OpenAlex collector
+name: 0 Letters in Mathematical Physics OA
 on:
   schedule:
     # Every four hours, UTC; phase starts at 04:40.

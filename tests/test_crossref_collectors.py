@@ -73,6 +73,7 @@ class CrossrefCollectorTests(unittest.TestCase):
             self.assertTrue(info["crossref_issn"])
             mode = "crossref"
             text = (ROOT / f".github/workflows/{mode}-{code}-collector.yml").read_text(encoding="utf-8")
+            self.assertEqual(text.splitlines()[0], f"name: 0 {info['name']} CR")
             self.assertIn(f"cron: '{generator.shifted_cron(info['cron_utc'], 3)}'", text)
             self.assertIn("workflow_dispatch:", text)
             self.assertIn(f"run-{mode}-{code}-collector", text)

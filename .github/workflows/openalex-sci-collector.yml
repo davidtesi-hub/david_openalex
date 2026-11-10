@@ -1,4 +1,4 @@
-name: SciPost Physics - OpenAlex collector
+name: 0 SciPost Physics OA
 on:
   schedule:
     # Every four hours, UTC; phase starts at 06:00.

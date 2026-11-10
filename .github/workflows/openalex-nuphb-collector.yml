@@ -1,4 +1,4 @@
-name: Nuclear Physics B - OpenAlex collector
+name: 0 Nuclear Physics B OA
 on:
   schedule:
     # Every four hours, UTC; phase starts at 05:20.

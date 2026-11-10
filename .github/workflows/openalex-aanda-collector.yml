@@ -1,4 +1,4 @@
-name: Astronomy & Astrophysics - OpenAlex collector
+name: 0 Astronomy & Astrophysics OA
 on:
   schedule:
     # Every four hours, UTC; phase starts at 03:40.

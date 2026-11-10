@@ -1,4 +1,4 @@
-name: Modern Physics Letters B - OpenAlex collector
+name: 0 Modern Physics Letters B OA
 on:
   schedule:
     # Every four hours, UTC; phase starts at 06:10.

@@ -14,7 +14,7 @@ class WorkflowTests(unittest.TestCase):
         for index, (code, journal) in enumerate(journals.items()):
             with self.subTest(journal=code):
                 text = (ROOT / f'.github/workflows/openalex-{code}-collector.yml').read_text(encoding='utf-8')
-                self.assertEqual(text.splitlines()[0], f"name: {journal['name']} - OpenAlex collector")
+                self.assertEqual(text.splitlines()[0], f"name: 0 {journal['name']} OA")
                 cron = re.search(r"cron: '([^']+)'", text).group(1)
                 minute, hours, *rest = cron.split()
                 offset = 180 + index * 10

@@ -1,4 +1,4 @@
-name: Journal of High Energy Physics - OpenAlex collector
+name: 0 Journal of High Energy Physics OA
 on:
   schedule:
     # Every four hours, UTC; phase starts at 04:10.
