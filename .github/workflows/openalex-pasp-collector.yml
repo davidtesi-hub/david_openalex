@@ -56,14 +56,15 @@ jobs:
         if: always()
         run: |
           if [ ! -f library/pasp.sqlite ] || [ ! -f library/pasp.coverage.sqlite ]; then exit 0; fi
+          python scripts/library_storage.py pack library/pasp.sqlite
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- library/pasp.sqlite library/pasp.coverage.sqlite
+          git add -- library/pasp.sqlite.zlib library/pasp.coverage.sqlite
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update pasp library and coverage'
           for attempt in 1 2 3; do
             git fetch origin main
-            if ! git diff --quiet "$START_REV" origin/main -- library/pasp.sqlite library/pasp.coverage.sqlite; then
+            if ! git diff --quiet "$START_REV" origin/main -- library/pasp.sqlite.zlib library/pasp.coverage.sqlite; then
               echo 'Remote pasp data changed; refusing to overwrite it.' >&2
               exit 1
             fi

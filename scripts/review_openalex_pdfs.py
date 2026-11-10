@@ -17,6 +17,11 @@ from llama_cpp import Llama
 from pdf_local_rag import QUESTIONS, build_chunks, retrieve
 from pdf_weekday import DAY_GROUPS, group_for_timestamp, qwen_pdf_db
 
+try:
+    from scripts.library_storage import restore, journal_paths
+except ModuleNotFoundError:
+    from library_storage import restore, journal_paths
+
 ROOT = Path(__file__).resolve().parents[1]
 GROUP = os.environ.get("PDF_REVIEW_DAY_GROUP", "monday")
 DB = qwen_pdf_db(ROOT, GROUP)
@@ -71,7 +76,8 @@ def candidates(db):
                 if score is not None and (score > 800 or (700 < score <= 800 and q2 == "D" and q3 in ("C", "D"))):
                     qualified.add(aid)
     found = {}
-    for path in sorted((ROOT / "library").glob("*.sqlite")):
+    for path in journal_paths(ROOT / "library"):
+        path = restore(path)
         with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as source:
             if not source.execute("SELECT 1 FROM sqlite_master WHERE name='papers'").fetchone():
                 continue

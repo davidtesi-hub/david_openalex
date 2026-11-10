@@ -15,6 +15,11 @@ from llama_cpp import Llama
 
 from rubric_v3 import open_db, prompt, save_response
 
+try:
+    from scripts.library_storage import restore, journal_paths
+except ModuleNotFoundError:
+    from library_storage import restore, journal_paths
+
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_KEY = os.environ.get('RUBRIC_MODEL', 'qwen3_8b')
 MODELS = {
@@ -32,7 +37,7 @@ def candidates(db):
     pending = {}
     journals = list(json.loads((ROOT / 'config.json').read_text(encoding='utf-8'))['journals'])
     for journal in journals:
-        path = ROOT / 'library' / f'{journal}.sqlite'
+        path = restore(ROOT / 'library' / f'{journal}.sqlite')
         if not path.exists():
             continue
         source = sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)

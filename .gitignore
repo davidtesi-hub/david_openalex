@@ -9,3 +9,7 @@ __pycache__/
 *.sqlite-shm
 *.tmp
 .venv/
+
+# Restored OpenAlex paper stores are transient; .sqlite.zlib is tracked.
+library/*.sqlite
+!library/*.coverage.sqlite

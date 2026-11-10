@@ -8,6 +8,11 @@ import json
 import sqlite3
 from pathlib import Path
 
+try:
+    from scripts.library_storage import restore, journal_paths
+except ModuleNotFoundError:
+    from library_storage import restore, journal_paths
+
 ROOT = Path(__file__).resolve().parents[1]
 LIBRARY = ROOT / "library"
 EVALUATIONS = ROOT / "abstract_evaluation"
@@ -25,7 +30,7 @@ WEEKDAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Do
 
 
 def read_journal(slug: str) -> dict[str, dt.date]:
-    path = LIBRARY / f"{slug}.sqlite"
+    path = restore(LIBRARY / f"{slug}.sqlite")
     if not path.exists():
         raise FileNotFoundError(f"Falta la base del journal {path}")
     db = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)

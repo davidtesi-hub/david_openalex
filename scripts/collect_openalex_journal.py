@@ -16,6 +16,11 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+try:
+    from scripts.library_storage import restore, journal_paths
+except ModuleNotFoundError:
+    from library_storage import restore, journal_paths
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from field_selection import selected_work, short_id, short_doi, migrate_papers
@@ -338,7 +343,7 @@ def run(args):
         raise ValueError("Set OPENALEX_API_KEY in the environment")
     directory = ROOT / "library"
     directory.mkdir(exist_ok=True)
-    db = sqlite3.connect(directory / (args.journal + ".sqlite"))
+    db = sqlite3.connect(restore(directory / (args.journal + ".sqlite")))
     init_db(db)
     run_id, started = str(uuid.uuid4()), now()
     db.execute("INSERT INTO query_runs(id,started_utc,status,max_intervals,max_requests) VALUES(?,?,'running',?,?)",

@@ -12,6 +12,11 @@ from phase3_policy import POLICIES, grammar_for, parse_response
 from pdf_weekday import DAY_GROUPS, qwen_pdf_db
 from pathlib import Path
 
+try:
+    from scripts.library_storage import restore, journal_paths
+except ModuleNotFoundError:
+    from library_storage import restore, journal_paths
+
 ROOT = Path(__file__).resolve().parents[1]
 KEY = "qwen3_8b"
 POLICY = os.environ.get("PDF_SCORE_POLICY", "standard")
@@ -40,7 +45,8 @@ def open_db():
 def papers(db):
     done = {row[0] for row in db.execute("SELECT id FROM evaluations")}
     metadata = {}
-    for path in sorted((ROOT / "library").glob("*.sqlite")):
+    for path in journal_paths(ROOT / "library"):
+        path = restore(path)
         with sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True) as library:
             if not library.execute("SELECT 1 FROM sqlite_master WHERE name='papers'").fetchone():
                 continue

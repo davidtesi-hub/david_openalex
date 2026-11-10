@@ -17,6 +17,11 @@ from typing import Any
 
 
 
+try:
+    from scripts.library_storage import restore, journal_paths
+except ModuleNotFoundError:
+    from library_storage import restore, journal_paths
+
 ROOT = Path(__file__).resolve().parents[1]
 LIBRARY = ROOT / "library"
 CONFIG_PATH = ROOT / "config.json"
@@ -158,7 +163,7 @@ def load_candidates():
     journals = list(json.loads(CONFIG_PATH.read_text(encoding='utf-8'))['journals'])
     found = {}
     for journal in journals:
-        path = LIBRARY / (journal + '.sqlite')
+        path = restore(LIBRARY / (journal + '.sqlite'))
         if not path.exists():
             continue
         db = sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)

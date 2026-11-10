@@ -17,6 +17,11 @@ from llama_cpp import Llama
 from rubric_storage import (CLAIMS, CONTRIBUTIONS, LIMITATIONS, METHODS, OPTIONS,
                             RESULTS, SUPPORT, open_db, save_response)
 
+try:
+    from scripts.library_storage import restore, journal_paths
+except ModuleNotFoundError:
+    from library_storage import restore, journal_paths
+
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_KEY = os.environ.get("RUBRIC_MODEL", "qwen3_8b")
 MODELS = {
@@ -94,7 +99,7 @@ def collect_candidates(db: sqlite3.Connection):
         "SELECT work_id,variante FROM evaluations WHERE validation_error IS NULL AND version_rubrica=1")}
     pending = {}
     for journal in journals:
-        path = ROOT / "library" / f"{journal}.sqlite"
+        path = restore(ROOT / "library" / f"{journal}.sqlite")
         if not path.exists():
             continue
         source = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
