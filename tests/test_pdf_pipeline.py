@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 # The candidate and parser checks do not require downloading or loading a model.
+sys.modules.setdefault("fitz", types.SimpleNamespace(open=None))
 sys.modules.setdefault("llama_cpp", types.SimpleNamespace(Llama=object))
 sys.modules.setdefault("huggingface_hub", types.SimpleNamespace(hf_hub_download=None))
 
