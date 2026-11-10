@@ -62,27 +62,53 @@ def evaluated_ids() -> set[str]:
     return result
 
 
-def weekday_counts(records, evaluated, start=None, end=None):
-    result = [{"evaluated": 0, "pending": 0} for _ in range(7)]
+def phase_ids() -> tuple[set[str], set[str], set[str]]:
+    phase1, phase2, phase3 = evaluated_ids(), set(), set()
+    for path in sorted((EVALUATIONS / "pdf_answers_v1").glob("pdf_answers_qwen3_rag_8b*.sqlite")):
+        db = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            phase2.update(row[0] for row in db.execute("SELECT id FROM answers"))
+        finally:
+            db.close()
+    path = EVALUATIONS / "phase3" / "pdf_score_qwen3_8b.sqlite"
+    if path.exists():
+        db = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            phase3.update(row[0] for row in db.execute(
+                "SELECT id FROM evaluations WHERE puntuacion IS NOT NULL"
+            ))
+        finally:
+            db.close()
+    return phase1, phase2, phase3
+
+
+def weekday_counts(records, phase1, phase2, phase3, start=None, end=None):
+    result = [{"phase3": 0, "phase2": 0, "phase1": 0, "collected": 0} for _ in range(7)]
     for work_id, published in records.items():
         if start is not None and not start <= published <= end:
             continue
-        result[published.weekday()]["evaluated" if work_id in evaluated else "pending"] += 1
+        stage = ("phase3" if work_id in phase3 else "phase2" if work_id in phase2
+                 else "phase1" if work_id in phase1 else "collected")
+        result[published.weekday()][stage] += 1
     return result
 
 
-def add_period(records, evaluated, today, week_start, previous_start, previous_end):
+def add_period(records, stage_ids, today, week_start, previous_start, previous_end):
     quarter_start = today.replace(month=((today.month - 1) // 3) * 3 + 1, day=1)
     half_start = today.replace(month=1 if today.month <= 6 else 7, day=1)
+    phase1, phase2, phase3 = stage_ids
+    counts = lambda start=None, end=None: weekday_counts(
+        records, phase1, phase2, phase3, start, end
+    )
     return {
         "total": len(records),
-        "current_week": weekday_counts(records, evaluated, week_start, today),
-        "previous_week": weekday_counts(records, evaluated, previous_start, previous_end),
-        "current_month": weekday_counts(records, evaluated, today.replace(day=1), today),
-        "current_quarter": weekday_counts(records, evaluated, quarter_start, today),
-        "current_half_year": weekday_counts(records, evaluated, half_start, today),
-        "current_year": weekday_counts(records, evaluated, today.replace(month=1, day=1), today),
-        "all_time": weekday_counts(records, evaluated),
+        "current_week": counts(week_start, today),
+        "previous_week": counts(previous_start, previous_end),
+        "current_month": counts(today.replace(day=1), today),
+        "current_quarter": counts(quarter_start, today),
+        "current_half_year": counts(half_start, today),
+        "current_year": counts(today.replace(month=1, day=1), today),
+        "all_time": counts(),
     }
 
 
@@ -92,12 +118,12 @@ def main():
     week_start = today - dt.timedelta(days=today.weekday())
     previous_start = week_start - dt.timedelta(days=7)
     previous_end = week_start - dt.timedelta(days=1)
-    evaluated = evaluated_ids()
+    stage_ids = phase_ids()
     journals = {}
     all_records = {}
     for slug in JOURNALS:
         records = read_journal(slug)
-        journals[slug] = add_period(records, evaluated, today, week_start, previous_start, previous_end)
+        journals[slug] = add_period(records, stage_ids, today, week_start, previous_start, previous_end)
         all_records.update(records)
     payload = {
         "generated_at_utc": now.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -113,7 +139,7 @@ def main():
         "counting_rule": "publication_date; combined total deduplicated by OpenAlex work ID",
         "evaluation_databases": EVALUATION_DATABASES,
         "journals": journals,
-        "Total": add_period(all_records, evaluated, today, week_start, previous_start, previous_end),
+        "Total": add_period(all_records, stage_ids, today, week_start, previous_start, previous_end),
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
