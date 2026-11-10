@@ -13,7 +13,8 @@ sys.modules.setdefault("huggingface_hub", types.SimpleNamespace(hf_hub_download=
 
 from pdf_weekday import group_for_timestamp, qwen_pdf_db
 from phase3_policy import parse_response
-from review_openalex_pdfs import pdf_location, split_answers
+from review_openalex_pdfs import pdf_locations, first_readable_pdf, split_answers
+from unittest.mock import patch
 
 
 class PdfPipelineTests(unittest.TestCase):
@@ -27,12 +28,24 @@ class PdfPipelineTests(unittest.TestCase):
                      "version": "publishedVersion", "source": {"display_name": "Journal"}}
         preprint = {"pdf_url": "https://arxiv.org/pdf/1234.5678", "is_oa": True,
                     "version": "submittedVersion"}
-        self.assertEqual(pdf_location({"primary_location": published, "locations": [preprint]})[1],
+        self.assertEqual(pdf_locations({"primary_location": published, "locations": [preprint]})[0][1],
                          "publishedVersion")
-        self.assertEqual(pdf_location({"primary_location": {"pdf_url": None},
-                                       "best_oa_location": preprint})[1], "submittedVersion")
-        self.assertIsNone(pdf_location({"locations": [{"pdf_url": "https://closed/paper.pdf",
-                                                        "is_oa": False}]}))
+        self.assertEqual(pdf_locations({"primary_location": {"pdf_url": None},
+                                        "best_oa_location": preprint})[0][1], "submittedVersion")
+        self.assertEqual(pdf_locations({"locations": [{"pdf_url": "https://closed/paper.pdf",
+                                                        "is_oa": False}]}), [])
+
+    def test_unreadable_primary_falls_back_to_preprint(self):
+        locations = [("https://publisher/paper.pdf", "publishedVersion", "Journal"),
+                     ("https://arxiv.org/pdf/1234.5678", "submittedVersion", "arXiv")]
+        def fake_fetch(url):
+            if "publisher" in url:
+                raise ValueError("Downloaded content is not a PDF")
+            return b"%PDF-test"
+        with patch("review_openalex_pdfs.fetch_pdf", side_effect=fake_fetch):
+            chosen = first_readable_pdf(locations)
+        self.assertEqual(chosen[1], "submittedVersion")
+        self.assertEqual(chosen[3], b"%PDF-test")
 
     def test_six_answers_and_phase3_score(self):
         raw = "\n".join(f"{i}. Answer {i}" for i in range(1, 7))

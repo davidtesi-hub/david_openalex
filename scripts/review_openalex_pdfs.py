@@ -41,16 +41,19 @@ def open_db():
     return db
 
 
-def pdf_location(work):
-    """Prefer primary, then best OA, then any other open PDF location."""
+def pdf_locations(work):
+    """Return distinct open PDF candidates in preferred order."""
     locations = [work.get("primary_location") or {}, work.get("best_oa_location") or {}]
     locations.extend(work.get("locations") or [])
+    found, seen = [], set()
     for item in locations:
         url = item.get("pdf_url") or ""
-        if item.get("is_oa") and url.startswith("https://"):
+        if item.get("is_oa") and url.startswith("https://") and url not in seen:
+            seen.add(url)
             source = item.get("source") or {}
-            return url, item.get("version") or "unknown", source.get("display_name") or item.get("id") or "unknown"
-    return None
+            found.append((url, item.get("version") or "unknown",
+                          source.get("display_name") or item.get("id") or "unknown"))
+    return found
 
 
 def candidates(db):
@@ -80,11 +83,21 @@ def candidates(db):
                 work = json.loads(raw)
                 if work.get("is_retracted"):
                     continue
-                location = pdf_location(work)
-                if location:
-                    found[aid] = (day, path.stem, *location)
-    return sorted(((day, aid, journal, url, version, source)
-                   for aid, (day, journal, url, version, source) in found.items()), reverse=True)
+                locations = pdf_locations(work)
+                if locations:
+                    found[aid] = (day, path.stem, locations)
+    return sorted(((day, aid, journal, locations)
+                   for aid, (day, journal, locations) in found.items()), reverse=True)
+
+
+def first_readable_pdf(locations):
+    errors = []
+    for url, version, source in locations:
+        try:
+            return url, version, source, fetch_pdf(url)
+        except Exception as exc:
+            errors.append(f"{url}: {type(exc).__name__}: {exc}")
+    raise ValueError("No readable open PDF; " + " | ".join(errors))
 
 
 def fetch_pdf(url):
@@ -163,12 +176,13 @@ def main():
     model = Llama(model_path=model_path, n_ctx=CONTEXT_TOKENS,
                   n_threads=min(4, os.cpu_count() or 1), n_batch=256, verbose=False)
     instructions = (ROOT / "scripts" / "pdf_open_questions_rag.txt").read_text(encoding="utf-8-sig")
-    for _, aid, journal, url, version, source in papers:
+    for _, aid, journal, locations in papers:
         if time.time() >= deadline:
             break
         started = time.monotonic()
         try:
-            body = supplied_text(fetch_pdf(url))
+            url, version, source, pdf = first_readable_pdf(locations)
+            body = supplied_text(pdf)
             request = instructions + "\n\n<PAPER_TEXT>\n" + body + "\n</PAPER_TEXT>"
             token_count = len(model.tokenize(request.encode("utf-8")))
             if token_count + OUTPUT_TOKENS + 64 > CONTEXT_TOKENS:
