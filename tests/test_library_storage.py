@@ -31,3 +31,14 @@ class LibraryStorageTests(unittest.TestCase):
             with self.assertRaises(Exception):
                 restore(path)
             self.assertFalse(path.exists())
+
+    def test_empty_newer_local_file_is_restored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.sqlite"
+            db = sqlite3.connect(path)
+            db.execute("CREATE TABLE papers (id TEXT)")
+            db.close()
+            pack(path)
+            path.write_bytes(b"")
+            restore(path)
+            self.assertEqual(path.read_bytes()[:16], b"SQLite format 3\x00")

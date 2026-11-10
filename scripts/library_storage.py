@@ -21,7 +21,9 @@ def restore(path: Path) -> Path:
     if not archive.exists():
         return path
     if path.exists() and path.stat().st_mtime_ns >= archive.stat().st_mtime_ns:
-        return path
+        with path.open("rb") as current:
+            if current.read(16) == b"SQLite format 3\x00":
+                return path
     temp = path.with_name(path.name + ".restore.tmp")
     decoder = zlib.decompressobj()
     try:
