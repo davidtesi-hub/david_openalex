@@ -5,6 +5,7 @@ import sqlite3
 from pathlib import Path
 
 from library_storage import journal_paths, restore
+from effective_publication_date import crossref_online_dates, effective_date
 
 ROOT = Path(__file__).resolve().parents[1]
 SCORES = ROOT / "abstract_evaluation/phase3/pdf_score_qwen3_8b.sqlite"
@@ -45,14 +46,18 @@ def urls(raw):
 
 
 def main():
+    online_dates = crossref_online_dates(ROOT / "library")
     with sqlite3.connect(SCORES) as scores:
         wanted = {row[0] for row in scores.execute("SELECT id FROM evaluations WHERE puntuacion >= 900")}
     found = {}
     for path in journal_paths(ROOT / "library"):
         restored = restore(path)
         with sqlite3.connect(restored) as source:
-            for work_id, date, raw_json in source.execute("SELECT id, publication_date, raw_json FROM papers"):
-                if work_id not in wanted or not date:
+            for work_id, doi, openalex_day, raw_json in source.execute("SELECT id, doi, publication_date, raw_json FROM papers"):
+                if work_id not in wanted:
+                    continue
+                date = effective_date(doi, openalex_day, online_dates)
+                if not date:
                     continue
                 main, pdf, preprint, preprint_pdf = urls(json.loads(raw_json))
                 row = (work_id, date[:10], sunday(date), main, pdf, preprint, preprint_pdf)

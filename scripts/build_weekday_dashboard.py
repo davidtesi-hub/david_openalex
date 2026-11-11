@@ -7,6 +7,7 @@ import datetime as dt
 import json
 import sqlite3
 from pathlib import Path
+from effective_publication_date import crossref_online_dates, effective_date
 
 try:
     from scripts.library_storage import restore, journal_paths
@@ -29,16 +30,17 @@ EVALUATION_DATABASES = [
 WEEKDAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
 
-def read_journal(slug: str) -> dict[str, dt.date]:
+def read_journal(slug: str, online_dates: dict[str, str]) -> dict[str, dt.date]:
     path = restore(LIBRARY / f"{slug}.sqlite")
     if not path.exists():
         raise FileNotFoundError(f"Falta la base del journal {path}")
     db = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
     try:
         records = {}
-        for work_id, publication_date in db.execute("SELECT id, publication_date FROM papers"):
+        for work_id, doi, publication_date in db.execute("SELECT id, doi, publication_date FROM papers"):
             try:
-                records[work_id] = dt.date.fromisoformat(publication_date[:10])
+                day = effective_date(doi, publication_date, online_dates)
+                records[work_id] = dt.date.fromisoformat(day)
             except (TypeError, ValueError):
                 continue
         return records
@@ -119,10 +121,11 @@ def main():
     previous_start = week_start - dt.timedelta(days=7)
     previous_end = week_start - dt.timedelta(days=1)
     stage_ids = phase_ids()
+    online_dates = crossref_online_dates(LIBRARY)
     journals = {}
     all_records = {}
     for slug in JOURNALS:
-        records = read_journal(slug)
+        records = read_journal(slug, online_dates)
         journals[slug] = add_period(records, stage_ids, today, week_start, previous_start, previous_end)
         all_records.update(records)
     payload = {
@@ -136,7 +139,7 @@ def main():
         "half_year_start_utc": today.replace(month=1 if today.month <= 6 else 7, day=1).isoformat(),
         "year_start_utc": today.replace(month=1, day=1).isoformat(),
         "weekdays": WEEKDAYS,
-        "counting_rule": "publication_date; combined total deduplicated by OpenAlex work ID",
+        "counting_rule": "Crossref published-online by DOI, otherwise OpenAlex publication_date; combined total deduplicated by OpenAlex work ID",
         "evaluation_databases": EVALUATION_DATABASES,
         "journals": journals,
         "Total": add_period(all_records, stage_ids, today, week_start, previous_start, previous_end),

@@ -10,6 +10,7 @@ from llama_cpp import Llama, LlamaGrammar
 
 from phase3_policy import POLICIES, grammar_for, parse_response
 from pdf_weekday import DAY_GROUPS, qwen_pdf_db
+from effective_publication_date import crossref_online_dates, effective_date
 from pathlib import Path
 
 try:
@@ -66,13 +67,15 @@ def open_db():
 def papers(db):
     done = {row[0] for row in db.execute("SELECT id FROM evaluations WHERE intentos IN (0,-1)")}
     metadata = {}
+    online_dates = crossref_online_dates(ROOT / "library")
     for path in journal_paths(ROOT / "library"):
         path = restore(path)
         with sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True) as library:
             if not library.execute("SELECT 1 FROM sqlite_master WHERE name='papers'").fetchone():
                 continue
-            for aid, abstract, stamp in library.execute(
-                "SELECT id,abstract,publication_date FROM papers"):
+            for aid, abstract, doi, openalex_day in library.execute(
+                "SELECT id,abstract,doi,publication_date FROM papers"):
+                stamp = effective_date(doi, openalex_day, online_dates)
                 if not stamp:
                     continue
                 if aid not in metadata or stamp > metadata[aid][1]:

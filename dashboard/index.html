@@ -18,7 +18,7 @@
 </head>
 <body>
   <main>
-    <header><h1>Papers de OpenAlex por día de publicación</h1><p class="sub">Fecha usada: <code>publication_date</code> de OpenAlex</p></header>
+    <header><h1>Papers de OpenAlex por día de publicación</h1><p class="sub">Fecha usada: <code>published-online</code> de Crossref por DOI; si falta, <code>publication_date</code> de OpenAlex</p></header>
     <div class="toolbar"><nav id="categories" aria-label="Seleccionar revista"></nav><a id="refresh" href="https://github.com/davidtesi-hub/david_openalex/actions/workflows/publish-weekly-dashboard.yml" target="_blank" rel="noopener noreferrer">Actualizar datos</a></div>
     <section class="summary" aria-live="polite"><div class="total" id="total">—</div><div class="summary-label"><strong id="category-name">Cargando…</strong><br>papers únicos publicados</div></section>
     <section class="weekly-stages" id="weekly-stages" hidden aria-label="Acumulados semanales por fase">

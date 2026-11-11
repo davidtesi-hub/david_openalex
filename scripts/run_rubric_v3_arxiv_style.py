@@ -17,6 +17,7 @@ from huggingface_hub import hf_hub_download
 from llama_cpp import Llama, LlamaGrammar
 
 from rubric_v3_arxiv_style_storage import open_db, save_response, mark_attempt, mark_discarded
+from effective_publication_date import crossref_online_dates, effective_date
 
 try:
     from scripts.library_storage import restore, journal_paths
@@ -60,6 +61,13 @@ def prompt(abstract: str) -> str:
 def collect_candidates(db: sqlite3.Connection):
     journals = list(json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["journals"])
     done = {row[0] for row in db.execute("SELECT id FROM evaluations WHERE intentos IN (0,-1)")}
+    for path in (ROOT / "abstract_evaluation").glob(f"rubric_v3_arxiv_style_{MODEL_KEY}*.sqlite"):
+        if path == DB_PATH:
+            continue
+        with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as other:
+            done.update(row[0] for row in other.execute(
+                "SELECT id FROM evaluations WHERE intentos IN (0,-1)"))
+    online_dates = crossref_online_dates(ROOT / "library")
     pending = {}
     seen = set(done)
     for journal in journals:
@@ -68,8 +76,8 @@ def collect_candidates(db: sqlite3.Connection):
             continue
         source = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
         try:
-            for work_id, abstract, day in source.execute("""
-                SELECT id,abstract,publication_date FROM papers
+            for work_id, abstract, doi, openalex_day in source.execute("""
+                SELECT id,abstract,doi,publication_date FROM papers
                 WHERE type='article' AND TRIM(COALESCE(abstract,''))<>''
                 AND COALESCE(json_extract(raw_json,'$.is_retracted'),0)=0
                 ORDER BY publication_date DESC,id DESC
@@ -77,6 +85,7 @@ def collect_candidates(db: sqlite3.Connection):
                 if work_id in seen:
                     continue
                 seen.add(work_id)
+                day = effective_date(doi, openalex_day, online_dates)
                 if SHARD and publication_weekday(day) not in WEEKDAYS[SHARD]:
                     continue
                 pending[work_id] = (work_id, abstract, day or "", journal)

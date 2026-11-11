@@ -16,6 +16,7 @@ from llama_cpp import Llama
 
 from pdf_local_rag import QUESTIONS, build_chunks, retrieve
 from pdf_weekday import DAY_GROUPS, group_for_timestamp, qwen_pdf_db
+from effective_publication_date import crossref_online_dates, effective_date
 
 try:
     from scripts.library_storage import restore, journal_paths
@@ -80,6 +81,7 @@ def pdf_locations(work):
 
 
 def candidates(db):
+    online_dates = crossref_online_dates(ROOT / "library")
     done = {row[0] for row in db.execute("SELECT id FROM answers WHERE intentos IN (0,-1)")}
     for group in DAY_GROUPS:
         path = qwen_pdf_db(ROOT, group)
@@ -99,8 +101,11 @@ def candidates(db):
         with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as source:
             if not source.execute("SELECT 1 FROM sqlite_master WHERE name='papers'").fetchone():
                 continue
-            for aid, day, raw in source.execute("SELECT id,publication_date,raw_json FROM papers"):
-                if aid in done or aid not in qualified or aid in found or not day:
+            for aid, doi, openalex_day, raw in source.execute("SELECT id,doi,publication_date,raw_json FROM papers"):
+                if aid in done or aid not in qualified or aid in found:
+                    continue
+                day = effective_date(doi, openalex_day, online_dates)
+                if not day:
                     continue
                 if group_for_timestamp(day) != GROUP:
                     continue
