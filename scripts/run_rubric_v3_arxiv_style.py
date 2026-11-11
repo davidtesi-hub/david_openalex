@@ -59,7 +59,7 @@ def prompt(abstract: str) -> str:
 
 def collect_candidates(db: sqlite3.Connection):
     journals = list(json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["journals"])
-    done = {row[0] for row in db.execute("SELECT id FROM evaluations WHERE T IS NOT NULL OR intentos=-1")}
+    done = {row[0] for row in db.execute("SELECT id FROM evaluations WHERE intentos IN (0,-1)")}
     pending = {}
     seen = set(done)
     for journal in journals:
