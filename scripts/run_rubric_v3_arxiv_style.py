@@ -16,7 +16,7 @@ from pathlib import Path
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama, LlamaGrammar
 
-from rubric_v3_arxiv_style_storage import open_db, save_response
+from rubric_v3_arxiv_style_storage import open_db, save_response, mark_attempt, mark_discarded
 
 try:
     from scripts.library_storage import restore, journal_paths
@@ -59,7 +59,7 @@ def prompt(abstract: str) -> str:
 
 def collect_candidates(db: sqlite3.Connection):
     journals = list(json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["journals"])
-    done = {row[0] for row in db.execute("SELECT id FROM evaluations")}
+    done = {row[0] for row in db.execute("SELECT id FROM evaluations WHERE T IS NOT NULL OR intentos=-1")}
     pending = {}
     seen = set(done)
     for journal in journals:
@@ -171,8 +171,11 @@ def main():
                 break
             processed += 1
             paper_valid = False
-            for attempt in (1,2):
+            for _ in (1,2):
                 if time.time() >= deadline:
+                    break
+                attempt = mark_attempt(db, paper_id=arxiv_id, model=MODEL_LABEL)
+                if attempt is None:
                     break
                 attempt_started = time.monotonic()
                 try:
@@ -188,6 +191,9 @@ def main():
                     paper_valid = True
                     break
                 invalid += 1
+                if attempt == 3:
+                    mark_discarded(db, arxiv_id)
+                    break
             consecutive_failures = 0 if paper_valid else consecutive_failures + 1
             if time.monotonic() >= next_checkpoint:
                 db=checkpoint(db)
