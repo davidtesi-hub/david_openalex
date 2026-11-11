@@ -67,7 +67,7 @@ def phase_ids() -> tuple[set[str], set[str], set[str]]:
     for path in sorted((EVALUATIONS / "pdf_answers_v1").glob("pdf_answers_qwen3_rag_8b*.sqlite")):
         db = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
         try:
-            phase2.update(row[0] for row in db.execute("SELECT id FROM answers"))
+            phase2.update(row[0] for row in db.execute("SELECT id FROM answers WHERE intentos=0"))
         finally:
             db.close()
     path = EVALUATIONS / "phase3" / "pdf_score_qwen3_8b.sqlite"
