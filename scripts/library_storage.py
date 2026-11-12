@@ -1,7 +1,6 @@
-"""Reversible zlib storage for the OpenAlex journal SQLite databases.
+"""Reversible zlib storage for OpenAlex, coverage, and Crossref SQLite files.
 
-Only the journal paper database is compressed. Coverage and Crossref SQLite
-files retain their existing format. Never open a compressed stream as SQLite.
+Published .db archives must be restored before SQLite opens them.
 """
 
 from __future__ import annotations
