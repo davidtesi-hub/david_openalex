@@ -56,15 +56,15 @@ jobs:
         if: always()
         run: |
           if [ ! -f library/mnras.sqlite ] || [ ! -f library/mnras.coverage.sqlite ]; then exit 0; fi
-          python scripts/library_storage.py pack library/mnras.sqlite
+          python scripts/library_storage.py pack library/mnras.sqlite library/mnras.coverage.sqlite
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- library/mnras.sqlite.zlib library/mnras.coverage.sqlite
+          git add -- library/mnras.db library/mnras.coverage.db
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update mnras library and coverage'
           for attempt in 1 2 3; do
             git fetch origin main
-            if ! git diff --quiet "$START_REV" origin/main -- library/mnras.sqlite.zlib library/mnras.coverage.sqlite; then
+            if ! git diff --quiet "$START_REV" origin/main -- library/mnras.db library/mnras.coverage.db; then
               echo 'Remote mnras data changed; refusing to overwrite it.' >&2
               exit 1
             fi

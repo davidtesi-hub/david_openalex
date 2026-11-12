@@ -56,15 +56,15 @@ jobs:
         if: always()
         run: |
           if [ ! -f library/jhep.sqlite ] || [ ! -f library/jhep.coverage.sqlite ]; then exit 0; fi
-          python scripts/library_storage.py pack library/jhep.sqlite
+          python scripts/library_storage.py pack library/jhep.sqlite library/jhep.coverage.sqlite
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- library/jhep.sqlite.zlib library/jhep.coverage.sqlite
+          git add -- library/jhep.db library/jhep.coverage.db
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update jhep library and coverage'
           for attempt in 1 2 3; do
             git fetch origin main
-            if ! git diff --quiet "$START_REV" origin/main -- library/jhep.sqlite.zlib library/jhep.coverage.sqlite; then
+            if ! git diff --quiet "$START_REV" origin/main -- library/jhep.db library/jhep.coverage.db; then
               echo 'Remote jhep data changed; refusing to overwrite it.' >&2
               exit 1
             fi

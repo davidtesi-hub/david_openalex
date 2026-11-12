@@ -18,7 +18,8 @@ def shifted_cron(value: str, minutes: int):
 
 def workflow(code: str, journal: dict):
     mode = "crossref"
-    path = f"library/crossref/{code}.sqlite"
+    path = f"library/crossref/{code}.db"
+    working_path = f"library/crossref/{code}.sqlite"
     cron = shifted_cron(journal["cron_utc"], 3)
     secret = "CROSSREF_MAILTO"
     return f"""name: 0 {journal['name']} CR
@@ -71,7 +72,8 @@ jobs:
         if: always()
         run: |
           if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then git rebase --abort; fi
-          if [ ! -f {path} ]; then exit 0; fi
+          if [ ! -f {working_path} ]; then exit 0; fi
+          python scripts/library_storage.py pack {working_path}
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- {path}

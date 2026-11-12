@@ -89,6 +89,11 @@ class Client:
 
 def open_db(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        from scripts.library_storage import restore
+    except ModuleNotFoundError:
+        from library_storage import restore
+    path = restore(path)
     db = sqlite3.connect(path)
     db.executescript("""
     CREATE TABLE IF NOT EXISTS papers (

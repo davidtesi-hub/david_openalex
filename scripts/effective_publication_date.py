@@ -5,6 +5,10 @@ from __future__ import annotations
 import datetime as dt
 import sqlite3
 from pathlib import Path
+try:
+    from scripts.library_storage import restore
+except ModuleNotFoundError:
+    from library_storage import restore
 
 
 def _day(value: str | None) -> str | None:
@@ -30,7 +34,8 @@ def _doi(value: str | None) -> str | None:
 def crossref_online_dates(library: Path) -> dict[str, str]:
     """Read collected Crossref metadata without changing either collector."""
     result = {}
-    for path in sorted((library / "crossref").glob("*.sqlite")):
+    for archive in sorted((library / "crossref").glob("*.db")):
+        path = restore(archive.with_suffix(".sqlite"))
         with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
             for doi, published_online in db.execute(
                 "SELECT doi,published_online FROM papers WHERE published_online IS NOT NULL"

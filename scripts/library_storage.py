@@ -17,7 +17,7 @@ GITHUB_LIMIT = 100 * 1024 * 1024
 
 
 def restore(path: Path) -> Path:
-    archive = path.with_suffix(path.suffix + ".zlib")
+    archive = path.with_suffix(".db")
     if not archive.exists():
         return path
     if path.exists() and path.stat().st_mtime_ns >= archive.stat().st_mtime_ns:
@@ -58,9 +58,9 @@ def pack(path: Path) -> Path:
         db.close()
     if result != ("ok",):
         raise ValueError(f"SQLite quick_check failed: {path}: {result}")
-    archive = path.with_suffix(path.suffix + ".zlib")
+    archive = path.with_suffix(".db")
     temp = archive.with_name(archive.name + ".tmp")
-    encoder = zlib.compressobj(level=6)
+    encoder = zlib.compressobj(level=9)
     try:
         with path.open("rb") as source, temp.open("wb") as target:
             for chunk in iter(lambda: source.read(CHUNK), b""):
@@ -85,7 +85,7 @@ def journal_paths(directory: Path):
     journals = json.loads((root / "config.json").read_text(encoding="utf-8"))["journals"]
     for journal in journals:
         path = directory / f"{journal}.sqlite"
-        if path.exists() or path.with_suffix(".sqlite.zlib").exists():
+        if path.exists() or path.with_suffix(".db").exists():
             yield path
 
 

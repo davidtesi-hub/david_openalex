@@ -56,15 +56,15 @@ jobs:
         if: always()
         run: |
           if [ ! -f library/sci.sqlite ] || [ ! -f library/sci.coverage.sqlite ]; then exit 0; fi
-          python scripts/library_storage.py pack library/sci.sqlite
+          python scripts/library_storage.py pack library/sci.sqlite library/sci.coverage.sqlite
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- library/sci.sqlite.zlib library/sci.coverage.sqlite
+          git add -- library/sci.db library/sci.coverage.db
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update sci library and coverage'
           for attempt in 1 2 3; do
             git fetch origin main
-            if ! git diff --quiet "$START_REV" origin/main -- library/sci.sqlite.zlib library/sci.coverage.sqlite; then
+            if ! git diff --quiet "$START_REV" origin/main -- library/sci.db library/sci.coverage.db; then
               echo 'Remote sci data changed; refusing to overwrite it.' >&2
               exit 1
             fi

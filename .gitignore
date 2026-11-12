@@ -10,6 +10,8 @@ __pycache__/
 *.tmp
 .venv/
 
-# Restored OpenAlex paper stores are transient; .sqlite.zlib is tracked.
+# Restored collector databases are transient; .db archives are tracked.
 library/*.sqlite
-!library/*.coverage.sqlite
+library/crossref/*.sqlite
+library/*.sqlite.zlib
+library/*.coverage.coverage.db
