@@ -4,10 +4,13 @@ import gc
 import json
 import os
 import re
+import signal
 import sqlite3
 import subprocess
+import threading
 import time
 import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
 
 import fitz
@@ -29,6 +32,40 @@ DB = qwen_pdf_db(ROOT, GROUP)
 MODEL = "Qwen3-8B Q4_K_M + PDF RAG"
 CONTEXT_TOKENS = 16384
 OUTPUT_TOKENS = 3500
+
+
+@contextmanager
+def timed_stage(stage, paper_id=None):
+    label = paper_id or "model"
+    started = time.monotonic()
+    stopped = threading.Event()
+    print(f"{label} stage={stage} status=started", flush=True)
+
+    def heartbeat():
+        while not stopped.wait(300):
+            print(f"{label} stage={stage} status=running duration_s={time.monotonic()-started:.1f}", flush=True)
+
+    thread = threading.Thread(target=heartbeat, daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stopped.set()
+        thread.join(timeout=1)
+        print(f"{label} stage={stage} status=finished duration_s={time.monotonic()-started:.1f}", flush=True)
+
+
+def select_text_with_timeout(pdf):
+    def expired(signum, frame):
+        raise TimeoutError("text_selection exceeded 1800 seconds")
+
+    previous = signal.signal(signal.SIGALRM, expired)
+    signal.setitimer(signal.ITIMER_REAL, 1800)
+    try:
+        return supplied_text(pdf)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
 ANSWER_COLUMNS = ("id", "modelo", "version_preguntas", "intentos", "pdf_url", "pdf_version",
                   "pdf_source", "modalidad", *(f"answer{i}" for i in range(1, 7)),
                   "raw_response", "completed_at_utc")
@@ -218,9 +255,11 @@ def main():
     if not papers:
         db.close()
         return
-    model_path = hf_hub_download(repo_id="Qwen/Qwen3-8B-GGUF", filename="Qwen3-8B-Q4_K_M.gguf")
-    model = Llama(model_path=model_path, n_ctx=CONTEXT_TOKENS,
-                  n_threads=min(4, os.cpu_count() or 1), n_batch=256, verbose=False)
+    with timed_stage("model_download"):
+        model_path = hf_hub_download(repo_id="Qwen/Qwen3-8B-GGUF", filename="Qwen3-8B-Q4_K_M.gguf")
+    with timed_stage("model_load"):
+        model = Llama(model_path=model_path, n_ctx=CONTEXT_TOKENS,
+                      n_threads=min(4, os.cpu_count() or 1), n_batch=256, verbose=False)
     instructions = (ROOT / "scripts" / "pdf_open_questions_rag.txt").read_text(encoding="utf-8-sig")
     for _, aid, journal, locations in papers:
         if time.time() >= deadline:
@@ -230,14 +269,20 @@ def main():
             continue
         started = time.monotonic()
         try:
-            url, version, source, pdf = first_readable_pdf(locations)
-            body = supplied_text(pdf)
+            with timed_stage("pdf_download", aid):
+                url, version, source, pdf = first_readable_pdf(locations)
+            print(f"{aid} pdf_bytes={len(pdf)} source={source}", flush=True)
+            with timed_stage("text_selection", aid):
+                body = select_text_with_timeout(pdf)
             request = instructions + "\n\n<PAPER_TEXT>\n" + body + "\n</PAPER_TEXT>"
-            token_count = len(model.tokenize(request.encode("utf-8")))
+            with timed_stage("tokenize", aid):
+                token_count = len(model.tokenize(request.encode("utf-8")))
+            print(f"{aid} input_tokens={token_count} output_budget={OUTPUT_TOKENS}", flush=True)
             if token_count + OUTPUT_TOKENS + 64 > CONTEXT_TOKENS:
                 raise ValueError(f"PDF passages exceed model context budget: {token_count} input tokens")
-            result = model.create_chat_completion(messages=[{"role": "user", "content": request}],
-                                                  temperature=0.1, max_tokens=OUTPUT_TOKENS)
+            with timed_stage("inference", aid):
+                result = model.create_chat_completion(messages=[{"role": "user", "content": request}],
+                                                      temperature=0.1, max_tokens=OUTPUT_TOKENS)
             raw = result["choices"][0]["message"]["content"] or ""
             answers = split_answers(raw)
             values = (aid, MODEL, 1, 0, url, version, source, "rag", *answers, raw,
