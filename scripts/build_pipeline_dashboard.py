@@ -7,9 +7,8 @@ from build_weekday_dashboard import ROOT, LIBRARY, EVALUATIONS, JOURNALS, EVALUA
 from effective_publication_date import crossref_online_dates
 
 OUTPUT = ROOT / "dashboard/data/pipeline.json"
-STAGES = ("collected", "p1_discarded", "p1_stopped", "p1_pending",
-          "p2_discarded", "p2_stopped", "p2_pending", "p3_discarded",
-          "p3_stopped", "p3_pending", "phase4")
+STAGES = ("collected", "abstract_pending", "abstract_discarded", "abstract_stopped",
+          "paper_pending", "paper_discarded", "paper_stopped", "selected")
 
 
 def rows(path, table, columns):
@@ -35,25 +34,25 @@ def records():
 
 def stage(aid, phase1, phase2, phase3, phase4):
     if aid in phase4:
-        return "phase4"
+        return "selected"
     if aid in phase3:
         attempts, score = phase3[aid]
         if attempts == -1:
-            return "p3_discarded"
+            return "paper_discarded"
         if attempts == 0 and score is not None:
-            return "p3_pending" if score >= 900 else "p3_stopped"
-        return "p3_pending"
+            return "paper_pending" if score >= 900 else "paper_stopped"
+        return "paper_pending"
     if aid in phase2:
         attempts = phase2[aid]
-        return "p2_discarded" if attempts == -1 else "p3_pending" if attempts == 0 else "p2_pending"
+        return "paper_discarded" if attempts == -1 else "paper_pending"
     if aid in phase1:
         attempts, score, q2, q3 = phase1[aid]
         if attempts == -1:
-            return "p1_discarded"
+            return "abstract_discarded"
         if attempts != 0 or score is None:
-            return "p1_pending"
+            return "abstract_pending"
         qualifies = score > 800 or (700 < score <= 800 and q2 == "D" and q3 in ("C", "D"))
-        return "p2_pending" if qualifies else "p1_stopped"
+        return "paper_pending" if qualifies else "abstract_stopped"
     return "collected"
 
 
@@ -75,14 +74,13 @@ def aggregate(items, state, today):
         "years": [empty() for _ in range(5)],
     }
     totals = empty()
-    started = [0, 0, 0, 0]
+    started = [0, 0, 0]
     for aid, day in items.items():
         key = stage(aid, *state)
         totals[key] += 1
         started[0] += aid in phase1 or aid in phase2 or aid in phase3 or aid in phase4
         started[1] += aid in phase2 or aid in phase3 or aid in phase4
-        started[2] += aid in phase3 or aid in phase4
-        started[3] += aid in phase4
+        started[2] += aid in phase4
         if week_start <= day <= today:
             buckets["current_week"][day.weekday()][key] += 1
         if previous_start <= day <= previous_end:
