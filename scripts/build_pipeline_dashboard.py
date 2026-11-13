@@ -1,0 +1,138 @@
+"""Build the OpenAlex pipeline dashboard from collector and evaluation databases."""
+import datetime as dt
+import json
+import sqlite3
+
+from build_weekday_dashboard import ROOT, LIBRARY, EVALUATIONS, JOURNALS, EVALUATION_DATABASES, read_journal
+from effective_publication_date import crossref_online_dates
+
+OUTPUT = ROOT / "dashboard/data/pipeline.json"
+STAGES = ("collected", "p1_discarded", "p1_stopped", "p1_pending",
+          "p2_discarded", "p2_stopped", "p2_pending", "p3_discarded",
+          "p3_stopped", "p3_pending", "phase4")
+
+
+def rows(path, table, columns):
+    if not path.exists():
+        return []
+    with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
+        return db.execute(f"SELECT {columns} FROM {table}").fetchall()
+
+
+def records():
+    phase1, phase2, phase3 = {}, {}, {}
+    for filename in EVALUATION_DATABASES:
+        for aid, attempts, score, q2, q3 in rows(EVALUATIONS / filename, "evaluations", "id,intentos,puntuacion,Q2,Q3"):
+            phase1[aid] = (attempts, score, q2, q3)
+    for path in (EVALUATIONS / "pdf_answers_v1").glob("pdf_answers_qwen3_rag_8b*.sqlite"):
+        for aid, attempts in rows(path, "answers", "id,intentos"):
+            phase2[aid] = attempts
+    for aid, attempts, score in rows(EVALUATIONS / "phase3/pdf_score_qwen3_8b.sqlite", "evaluations", "id,intentos,puntuacion"):
+        phase3[aid] = (attempts, score)
+    phase4 = {row[0] for row in rows(EVALUATIONS / "phase4/selected_papers.sqlite", "papers", "id")}
+    return phase1, phase2, phase3, phase4
+
+
+def stage(aid, phase1, phase2, phase3, phase4):
+    if aid in phase4:
+        return "phase4"
+    if aid in phase3:
+        attempts, score = phase3[aid]
+        if attempts == -1:
+            return "p3_discarded"
+        if attempts == 0 and score is not None:
+            return "p3_pending" if score >= 900 else "p3_stopped"
+        return "p3_pending"
+    if aid in phase2:
+        attempts = phase2[aid]
+        return "p2_discarded" if attempts == -1 else "p3_pending" if attempts == 0 else "p2_pending"
+    if aid in phase1:
+        attempts, score, q2, q3 = phase1[aid]
+        if attempts == -1:
+            return "p1_discarded"
+        if attempts != 0 or score is None:
+            return "p1_pending"
+        qualifies = score > 800 or (700 < score <= 800 and q2 == "D" and q3 in ("C", "D"))
+        return "p2_pending" if qualifies else "p1_stopped"
+    return "collected"
+
+
+def empty():
+    return {name: 0 for name in STAGES}
+
+
+def aggregate(items, state, today):
+    phase1, phase2, phase3, phase4 = state
+    week_start = today - dt.timedelta(days=today.weekday())
+    previous_start = week_start - dt.timedelta(days=7)
+    previous_end = week_start - dt.timedelta(days=1)
+    buckets = {
+        "current_week": [empty() for _ in range(7)],
+        "previous_week": [empty() for _ in range(7)],
+        "weeks": [empty() for _ in range(12)],
+        "months": [empty() for _ in range(12)],
+        "quarters": [empty() for _ in range(8)],
+        "years": [empty() for _ in range(5)],
+    }
+    totals = empty()
+    started = [0, 0, 0, 0]
+    for aid, day in items.items():
+        key = stage(aid, *state)
+        totals[key] += 1
+        started[0] += aid in phase1 or aid in phase2 or aid in phase3 or aid in phase4
+        started[1] += aid in phase2 or aid in phase3 or aid in phase4
+        started[2] += aid in phase3 or aid in phase4
+        started[3] += aid in phase4
+        if week_start <= day <= today:
+            buckets["current_week"][day.weekday()][key] += 1
+        if previous_start <= day <= previous_end:
+            buckets["previous_week"][day.weekday()][key] += 1
+        age_weeks = (week_start - (day - dt.timedelta(days=day.weekday()))).days // 7
+        if 0 <= age_weeks < 12:
+            buckets["weeks"][11-age_weeks][key] += 1
+        age_months = (today.year-day.year)*12 + today.month-day.month
+        if 0 <= age_months < 12:
+            buckets["months"][11-age_months][key] += 1
+        age_quarters = (today.year-day.year)*4 + (today.month-1)//3 - (day.month-1)//3
+        if 0 <= age_quarters < 8:
+            buckets["quarters"][7-age_quarters][key] += 1
+        age_years = today.year-day.year
+        if 0 <= age_years < 5:
+            buckets["years"][4-age_years][key] += 1
+    def iso_week(start):
+        year, week, _ = start.isocalendar()
+        return f"{year}-S{week:02d}"
+    labels = {
+        "current_week": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+        "previous_week": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+        "weeks": [iso_week(week_start-dt.timedelta(weeks=i)) for i in range(11, -1, -1)],
+        "months": [],
+        "quarters": [], "years": [str(today.year-i) for i in range(4, -1, -1)],
+    }
+    labels["months"] = [f"{(today.year*12+today.month-1-i)//12}-{(today.year*12+today.month-1-i)%12+1:02d}" for i in range(11, -1, -1)]
+    for age in range(7, -1, -1):
+        q = today.year*4+(today.month-1)//3-age
+        labels["quarters"].append(f"T{q%4+1} {q//4}")
+    return {"total": len(items), "started": started, "totals": totals,
+            "charts": {key: {"labels": labels[key], "values": values} for key, values in buckets.items()}}
+
+
+def main():
+    now = dt.datetime.now(dt.timezone.utc)
+    state = records()
+    online_dates = crossref_online_dates(LIBRARY)
+    journals = {}
+    combined = {}
+    for slug in JOURNALS:
+        works = read_journal(slug, online_dates)
+        journals[slug] = aggregate(works, state, now.date())
+        combined.update(works)
+    payload = {"generated_at_utc": now.isoformat(), "stages": STAGES,
+               "journals": journals, "Total": aggregate(combined, state, now.date())}
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Dashboard: {len(combined)} papers únicos")
+
+
+if __name__ == "__main__":
+    main()
