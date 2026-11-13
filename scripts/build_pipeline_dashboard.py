@@ -5,6 +5,7 @@ import sqlite3
 
 from build_weekday_dashboard import ROOT, LIBRARY, EVALUATIONS, JOURNALS, EVALUATION_DATABASES, read_journal
 from effective_publication_date import crossref_online_dates
+from library_storage import restore
 
 OUTPUT = ROOT / "dashboard/data/pipeline.json"
 STAGES = ("collected", "abstract_pending", "abstract_discarded", "abstract_stopped",
@@ -60,6 +61,36 @@ def empty():
     return {name: 0 for name in STAGES}
 
 
+def journal_coverage(slug, yesterday):
+    paper_db = restore(LIBRARY / f"{slug}.sqlite")
+    with sqlite3.connect(paper_db.resolve().as_uri() + "?mode=ro", uri=True) as db:
+        row = db.execute("SELECT value FROM collector_state WHERE key='archive_start'").fetchone()
+        if not row:
+            row = db.execute("SELECT MIN(publication_date) FROM papers").fetchone()
+    if not row or not row[0]:
+        return None
+    start = dt.date.fromisoformat(row[0][:10])
+    if start > yesterday:
+        return None
+    path = restore(LIBRARY / f"{slug}.coverage.sqlite")
+    days = []
+    if path.exists():
+        with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
+            days = sorted(dt.date.fromisoformat(day) for (day,) in db.execute(
+                "SELECT day FROM daily_coverage WHERE day BETWEEN ? AND ?",
+                (start.isoformat(), yesterday.isoformat())))
+    runs = []
+    for day in days:
+        if runs and day <= runs[-1][1] + dt.timedelta(days=1):
+            runs[-1][1] = day
+        else:
+            runs.append([day, day])
+    total = (yesterday - start).days + 1
+    return {"start": start.isoformat(), "end": yesterday.isoformat(),
+            "covered": len(days), "total": total,
+            "runs": [[a.isoformat(), b.isoformat()] for a, b in runs]}
+
+
 def aggregate(items, state, today):
     phase1, phase2, phase3, phase4 = state
     week_start = today - dt.timedelta(days=today.weekday())
@@ -71,7 +102,8 @@ def aggregate(items, state, today):
         "weeks": [empty() for _ in range(12)],
         "months": [empty() for _ in range(12)],
         "quarters": [empty() for _ in range(8)],
-        "years": [empty() for _ in range(5)],
+        "semesters": [empty() for _ in range(max(1, (today.year - min((day.year for day in items.values()), default=today.year)) * 2 + (today.month > 6) + 1))],
+        "years": [empty() for _ in range(max(1, today.year - min((day.year for day in items.values()), default=today.year) + 1))],
     }
     totals = empty()
     started = [0, 0, 0]
@@ -94,9 +126,12 @@ def aggregate(items, state, today):
         age_quarters = (today.year-day.year)*4 + (today.month-1)//3 - (day.month-1)//3
         if 0 <= age_quarters < 8:
             buckets["quarters"][7-age_quarters][key] += 1
+        age_semesters = (today.year-day.year)*2 + (today.month > 6) - (day.month > 6)
+        if 0 <= age_semesters < len(buckets["semesters"]):
+            buckets["semesters"][len(buckets["semesters"])-1-age_semesters][key] += 1
         age_years = today.year-day.year
-        if 0 <= age_years < 5:
-            buckets["years"][4-age_years][key] += 1
+        if 0 <= age_years < len(buckets["years"]):
+            buckets["years"][len(buckets["years"])-1-age_years][key] += 1
     def iso_week(start):
         year, week, _ = start.isocalendar()
         return f"{year}-S{week:02d}"
@@ -105,12 +140,16 @@ def aggregate(items, state, today):
         "previous_week": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
         "weeks": [iso_week(week_start-dt.timedelta(weeks=i)) for i in range(11, -1, -1)],
         "months": [],
-        "quarters": [], "years": [str(today.year-i) for i in range(4, -1, -1)],
+        "quarters": [], "semesters": [],
+        "years": [str(today.year-i) for i in range(len(buckets["years"])-1, -1, -1)],
     }
     labels["months"] = [f"{(today.year*12+today.month-1-i)//12}-{(today.year*12+today.month-1-i)%12+1:02d}" for i in range(11, -1, -1)]
     for age in range(7, -1, -1):
         q = today.year*4+(today.month-1)//3-age
         labels["quarters"].append(f"T{q%4+1} {q//4}")
+    for age in range(len(buckets["semesters"])-1, -1, -1):
+        half = today.year*2+(today.month > 6)-age
+        labels["semesters"].append(f"S{half%2+1} {half//2}")
     return {"total": len(items), "started": started, "totals": totals,
             "charts": {key: {"labels": labels[key], "values": values} for key, values in buckets.items()}}
 
@@ -120,13 +159,16 @@ def main():
     state = records()
     online_dates = crossref_online_dates(LIBRARY)
     journals = {}
+    coverages = {}
     combined = {}
     for slug in JOURNALS:
         works = read_journal(slug, online_dates)
         journals[slug] = aggregate(works, state, now.date())
+        coverages[slug] = journal_coverage(slug, now.date() - dt.timedelta(days=1))
         combined.update(works)
     payload = {"generated_at_utc": now.isoformat(), "stages": STAGES,
-               "journals": journals, "Total": aggregate(combined, state, now.date())}
+               "journals": journals, "coverage": coverages,
+               "Total": aggregate(combined, state, now.date())}
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Dashboard: {len(combined)} papers únicos")
