@@ -60,13 +60,13 @@ def prompt(abstract: str) -> str:
 
 def collect_candidates(db: sqlite3.Connection):
     journals = list(json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["journals"])
-    done = {row[0] for row in db.execute("SELECT id FROM evaluations WHERE intentos IN (0,-1)")}
+    done = {row[0] for row in db.execute("SELECT id FROM evaluations WHERE intentos=0 OR T IS NOT NULL")}
     for path in (ROOT / "abstract_evaluation").glob(f"rubric_v3_arxiv_style_{MODEL_KEY}*.sqlite"):
         if path == DB_PATH:
             continue
         with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as other:
             done.update(row[0] for row in other.execute(
-                "SELECT id FROM evaluations WHERE intentos IN (0,-1)"))
+                "SELECT id FROM evaluations WHERE intentos=0 OR T IS NOT NULL"))
     online_dates = crossref_online_dates(ROOT / "library")
     pending = {}
     seen = set(done)
@@ -200,7 +200,7 @@ def main():
                     paper_valid = True
                     break
                 invalid += 1
-                if attempt == 3:
+                if attempt == 0:
                     mark_discarded(db, arxiv_id)
                     break
             consecutive_failures = 0 if paper_valid else consecutive_failures + 1
